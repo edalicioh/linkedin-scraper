@@ -128,25 +128,75 @@ async function scrapeJobDetails(page, jobUrl) {
     console.log('Descrição element:', descricaoElement);
     console.log('Descrição innerText:', descricaoElement?.innerText);
 
+    // Extrai o tipo de candidatura
+    const type = (() => {
+      const applyButton = document.querySelector('.jobs-apply-button--top-card');
+      if (!applyButton) return 'N/A';
+      
+      const buttonText = applyButton.querySelector('.artdeco-button__text')?.innerText?.trim().toLowerCase();
+      if (buttonText === 'easy apply') return 'Easy Apply';
+      if (buttonText === 'apply') return 'Apply on company website';
+      
+      // Se o texto não for nenhum dos esperados, retorna o texto original ou 'N/A'
+      return buttonText || 'N/A';
+    })();
+
     return {
       title: tituloElement?.innerText?.trim() || 'N/A',
       company: empresaElement?.innerText?.trim() || 'N/A',
       description: descricaoElement?.innerText?.trim() || 'N/A',
       url: window.location.href,
-      // Extrai o tipo de candidatura
-      type: (() => {
-        const applyButton = document.querySelector('.jobs-apply-button--top-card');
-        if (!applyButton) return 'N/A';
-        
-        const buttonText = applyButton.querySelector('.artdeco-button__text')?.innerText?.trim().toLowerCase();
-        if (buttonText === 'easy apply') return 'Easy Apply';
-        if (buttonText === 'apply') return 'Apply on company website';
-        
-        // Se o texto não for nenhum dos esperados, retorna o texto original ou 'N/A'
-        return buttonText || 'N/A';
-      })()
+      type: type
     };
   });
+
+  // Se for "Apply on company website", tenta obter a URL externa
+  if (jobData.type === 'Apply on company website') {
+    try {
+      console.log('Tentando obter URL externa...');
+      
+      // Obtém o número de abas antes de clicar
+      const pagesBefore = (await page.browser().pages()).length;
+      
+      // Clica no botão "Apply"
+      await page.click('.jobs-apply-button--top-card');
+      
+      // Espera um pouco para que a modal ou nova aba possa ser aberta
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Verifica se uma modal foi aberta
+      const modal = await page.$('.artdeco-modal');
+      if (modal) {
+        console.log('Modal detectada. Clicando em "Continue"...');
+        // Clica no botão "Continue" dentro da modal
+        await page.click('.artdeco-modal .jobs-apply-button');
+        // Espera um pouco mais para que a nova aba possa ser aberta após o clique no "Continue"
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+      
+      // Obtém todas as abas/janelas
+      const pages = await page.browser().pages();
+      console.log(`Total de abas: ${pages.length}`);
+      
+      // A nova aba deve ser a última
+      if (pages.length > pagesBefore) {
+        const newPage = pages[pages.length - 1];
+        jobData.externalUrl = newPage.url();
+        console.log(`URL externa obtida: ${jobData.externalUrl}`);
+        
+        // Fecha a nova aba
+        await newPage.close();
+      } else {
+        console.log('Nenhuma nova aba foi aberta.');
+        jobData.externalUrl = 'N/A';
+      }
+    } catch (error) {
+      console.error('Erro ao tentar obter URL externa:', error);
+      jobData.externalUrl = 'N/A';
+    }
+  } else {
+    jobData.externalUrl = null;
+  }
 
   return jobData;
 }

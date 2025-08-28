@@ -5,6 +5,9 @@ require('dotenv').config();
 const config = {
   linkedinEmail: process.env.LINKEDIN_EMAIL,
   linkedinPassword: process.env.LINKEDIN_PASSWORD,
+  maxPages: parseInt(process.env.MAX_PAGES) || 3,
+  jobsPerPage: parseInt(process.env.JOBS_PER_PAGE) || 25,
+  timePeriod: process.env.TIME_PERIOD || 'any'
 };
 
 // Validação para garantir que as credenciais foram carregadas
