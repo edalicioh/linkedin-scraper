@@ -64,10 +64,12 @@ async function main() {
 
     // 5. Extrair detalhes de cada vaga
     const jobs = [];
+    const extractionDate = new Date().toISOString(); // Data e hora da extração
     for (const job of linksToScrape) {
       const jobData = await scrapeJobDetails(page, job.url);
-      // Adiciona o jobId aos dados da vaga
+      // Adiciona o jobId e a data de extração aos dados da vaga
       jobData.jobId = job.jobId;
+      jobData.extractionDate = extractionDate;
       jobs.push(jobData);
     }
 
@@ -82,7 +84,7 @@ async function main() {
     console.error('Ocorreu um erro no processo principal do scraper:', error);
   } finally {
     // 7. Fechar o navegador
-    await closeBrowser();
+    //await closeBrowser();
     console.log('Scraper finalizado.');
   }
 }

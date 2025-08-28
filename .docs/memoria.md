@@ -22,6 +22,7 @@
 - A extração de links das vagas foi ajustada para funcionar corretamente, utilizando o atributo `data-job-id` do container pai.
 - A extração dos detalhes das vagas foi atualizada para capturar os campos solicitados: `title`, `company`, `description`, `url`, `type` e `externalUrl`, com os seletores CSS corretos.
 - Para vagas do tipo "Apply on company website", o scraper obtém e salva a URL externa, lidando corretamente com os dois cenários possíveis (nova aba ou modal).
+- A data e hora de extração foram adicionadas ao JSON de saída.
 
 ### 5. Documentação Atualizada
 - O arquivo `README.md` foi completamente reescrito para refletir a nova arquitetura, funcionalidades e instruções de uso.
