@@ -67,23 +67,30 @@ async function scrapeJobLinks(page, searchUrl) {
 
   console.log('Extraindo links das vagas...');
   const jobLinks = await page.evaluate(() => {
-    const links = [];
-    const jobElements = document.querySelectorAll('a.job-card-container__link');
-    console.log(`Total de elementos encontrados pelo seletor: ${jobElements.length}`);
+    const jobs = [];
+    // Seleciona os containers das vagas que têm o atributo data-job-id
+    const jobContainers = document.querySelectorAll('div[data-job-id]');
+    console.log(`Total de containers de vagas encontrados: ${jobContainers.length}`);
     
-    jobElements.forEach((element, index) => {
-      console.log(`Elemento ${index}: href = ${element.href}`);
-      if (element.href && element.href.includes('/jobs/view/')) {
-        links.push(element.href);
-        console.log(`  -> Link adicionado: ${element.href}`);
+    jobContainers.forEach((container, index) => {
+      const jobId = container.getAttribute('data-job-id');
+      // Encontra o link da vaga dentro do container
+      const linkElement = container.querySelector('a.job-card-container__link');
+      const url = linkElement ? linkElement.href : null;
+      
+      console.log(`Container ${index}: jobId = ${jobId}, href = ${url}`);
+      
+      if (url && url.includes('/jobs/view/') && jobId) {
+        jobs.push({ url, jobId });
+        console.log(`  -> Vaga adicionada: ${url} (ID: ${jobId})`);
       } else {
-        console.log(`  -> Link ignorado: ${element.href}`);
+        console.log(`  -> Vaga ignorada: ${url} (ID: ${jobId})`);
       }
     });
-    return links;
+    return jobs;
   });
 
-  console.log(`Encontrados ${jobLinks.length} links de vagas.`);
+  console.log(`Encontradas ${jobLinks.length} vagas.`);
   return jobLinks;
 }
 
@@ -125,7 +132,19 @@ async function scrapeJobDetails(page, jobUrl) {
       title: tituloElement?.innerText?.trim() || 'N/A',
       company: empresaElement?.innerText?.trim() || 'N/A',
       description: descricaoElement?.innerText?.trim() || 'N/A',
-      url: window.location.href
+      url: window.location.href,
+      // Extrai o tipo de candidatura
+      type: (() => {
+        const applyButton = document.querySelector('.jobs-apply-button--top-card');
+        if (!applyButton) return 'N/A';
+        
+        const buttonText = applyButton.querySelector('.artdeco-button__text')?.innerText?.trim().toLowerCase();
+        if (buttonText === 'easy apply') return 'Easy Apply';
+        if (buttonText === 'apply') return 'Apply on company website';
+        
+        // Se o texto não for nenhum dos esperados, retorna o texto original ou 'N/A'
+        return buttonText || 'N/A';
+      })()
     };
   });
 
