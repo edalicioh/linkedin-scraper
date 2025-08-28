@@ -1,0 +1,23 @@
+{
+  "name": "linkedin-scraper",
+  "version": "1.0.0",
+  "description": "Scraper de vagas do LinkedIn",
+  "main": "scraper.js",
+  "scripts": {
+    "start": "node scraper.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "scraper",
+    "linkedin",
+    "jobs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cheerio": "^1.1.2",
+    "dotenv": "^16.6.1",
+    "fs-extra": "^11.3.1",
+    "puppeteer": "^21.11.0"
+  }
+}

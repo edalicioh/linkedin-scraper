@@ -1,0 +1,4 @@
+node_modules/
+.env
+vagas.json
+cookies.json
