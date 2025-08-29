@@ -4,11 +4,11 @@
 
 ### 1. Refatoração do Código
 - O código foi totalmente refatorado para ser modular, com a criação da pasta `src` e divisão das funcionalidades em módulos:
-  - `browser.js`: Gerencia a instância do Puppeteer.
-  - `config.js`: Carrega as variáveis de ambiente.
-  - `file-saver.js`: Salva os dados em arquivos.
-  - `linkedin.js`: Contém a lógica de scraping do LinkedIn.
-  - `session-manager.js`: Gerencia cookies de sessão.
+  - `src/core/browser.js`: Gerencia a instância do Puppeteer.
+  - `src/core/config.js`: Carrega as variáveis de ambiente.
+  - `src/services/file-saver.js`: Salva os dados em arquivos.
+  - `src/scraper/linkedin.js`: Contém a lógica de scraping do LinkedIn.
+  - `src/services/session-manager.js`: Gerencia cookies de sessão.
 
 ### 2. Gerenciamento de Sessão
 - Implementado sistema automático para salvar e carregar cookies de sessão (`cookies.json`).
@@ -36,6 +36,17 @@
 ### 8. Índice de Vagas Únicas
 - Implementado um índice usando `jobId` para evitar processar vagas que já estão no `vagas.json`.
 
+### 9. Criação e Evolução da API
+- Foi criada uma API REST com Express.js para acionar o scraper.
+- A API foi evoluída para uma arquitetura com `controllers` e `routes`, tornando-a mais organizada e fácil de manter.
+- Um novo endpoint `GET /api/jobs` foi adicionado para permitir a consulta dos jobs coletados.
+
+## Estrutura Final do Projeto
+```
+linkedin-scraper/
+│
+├── .docs/
+│   └── memoria.md
 ## Estrutura Final do Projeto
 ```
 linkedin-scraper/
@@ -43,15 +54,27 @@ linkedin-scraper/
 ├── .docs/
 │   └── memoria.md
 ├── src/
-│   ├── browser.js
-│   ├── config.js
-│   ├── file-saver.js
-│   ├── linkedin.js
-│   └── session-manager.js
+│   ├── controllers/
+│   │   └── jobController.js
+│   ├── core/
+│   │   ├── browser.js
+│   │   └── config.js
+│   ├── routes/
+│   │   └── jobRoutes.js
+│   ├── scraper/
+│   │   └── linkedin.js
+│   └── services/
+│       ├── file-saver.js
+│       ├── session-manager.js
+│       └── url-generator.js
 │
+├── storage/
+│   ├── cookies.json
+│   └── vagas.json
+│
+├── api.js
 ├── scraper.js
 ├── .env
-├── cookies.json
-├── vagas.json
 ├── package.json
 └── node_modules/
+```

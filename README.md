@@ -22,16 +22,25 @@ Este projeto é um scraper otimizado para coletar vagas do LinkedIn usando **Nod
 linkedin-scraper/
 │
 ├── src/
-│   ├── browser.js         # Gerencia a instância do Puppeteer
-│   ├── config.js          # Carrega as variáveis de ambiente
-│   ├── file-saver.js      # Salva os dados em arquivos
-│   ├── linkedin.js        # Contém a lógica de scraping do LinkedIn
-│   └── session-manager.js # Gerencia cookies de sessão
+│   ├── controllers/       # Lógica de negócio das rotas da API
+│   ├── core/              # Núcleo da aplicação (configuração, gerenciamento do navegador)
+│   │   ├── browser.js     # Gerencia a instância do Puppeteer
+│   │   └── config.js      # Carrega as variáveis de ambiente
+│   ├── routes/            # Definição das rotas da API
+│   ├── scraper/           # Lógica específica do scraping do LinkedIn
+│   │   └── linkedin.js    # Contém a lógica de scraping do LinkedIn
+│   └── services/          # Serviços auxiliares
+│       ├── file-saver.js      # Salva os dados em arquivos
+│       ├── session-manager.js # Gerencia cookies de sessão
+│       └── url-generator.js   # Gera URLs de busca
 │
+├── storage/               # Diretório para armazenamento de dados persistentes
+│   ├── cookies.json       # Cookies de sessão salvos (gerado automaticamente)
+│   └── vagas.json         # Dados coletados
+│
+├── api.js                 # Ponto de entrada da API
 ├── scraper.js             # Orquestrador principal
 ├── .env                   # Arquivo de configuração (não incluído no repositório)
-├── cookies.json           # Cookies de sessão salvos (gerado automaticamente)
-├── vagas.json             # Dados coletados
 ├── package.json
 └── node_modules/
 ```
@@ -96,7 +105,7 @@ curl -X POST http://localhost:3000/scrape \
     -d '{"keywords": "desenvolvedor javascript", "location": "São Paulo"}'
 ```
 
-A API responderá imediatamente e o processo de scraping será iniciado em background. Os resultados serão salvos no arquivo `vagas.json` como de costume.
+A API responderá imediatamente e o processo de scraping será iniciado em background. Os resultados serão salvos no arquivo `storage/vagas.json` como de costume.
 
 #### Usar o Endpoint para Obter Jobs
 
@@ -139,11 +148,11 @@ O LinkedIn pode alterar seus seletores HTML. Revise periodicamente:
 O projeto foi refatorado para ser modular:
 
 - `scraper.js`: O orquestrador principal que chama os módulos.
-- `src/browser.js`: Gerencia a instância do navegador Puppeteer.
-- `src/config.js`: Carrega as variáveis de ambiente de forma segura.
-- `src/linkedin.js`: Contém toda a lógica específica do LinkedIn (login, extração de vagas).
-- `src/file-saver.js`: Lida com a gravação dos dados em arquivos.
-- `src/session-manager.js`: Implementa o sistema de gerenciamento de sessão com cookies.
+- `src/core/browser.js`: Gerencia a instância do navegador Puppeteer.
+- `src/core/config.js`: Carrega as variáveis de ambiente de forma segura.
+- `src/scraper/linkedin.js`: Contém toda a lógica específica do LinkedIn (login, extração de vagas).
+- `src/services/file-saver.js`: Lida com a gravação dos dados em arquivos.
+- `src/services/session-manager.js`: Implementa o sistema de gerenciamento de sessão com cookies.
 
 ---
 

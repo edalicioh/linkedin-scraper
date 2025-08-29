@@ -7,7 +7,7 @@ const path = require('path');
  * @param {object[]} data - Os dados a serem salvos.
  */
 async function saveAsJson(fileName, data) {
-  const outputPath = path.join(__dirname, '..', fileName);
+ const outputPath = path.join(__dirname, '..', 'storage', fileName);
   try {
     await fse.writeJson(outputPath, data, { spaces: 2 });
     console.log(`Dados salvos com sucesso em ${outputPath}`);
@@ -22,7 +22,7 @@ async function saveAsJson(fileName, data) {
  * @param {object[]} newData - Os novos dados a serem adicionados.
  */
 async function appendAsJson(fileName, newData) {
-  const outputPath = path.join(__dirname, '..', fileName);
+  const outputPath = path.join(__dirname, '..', 'storage', fileName);
   try {
     let existingData = [];
     try {

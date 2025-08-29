@@ -36,7 +36,7 @@ async function startScraping(req, res) {
  */
 async function getJobs(req, res) {
     try {
-        const vagasPath = path.join(__dirname, '../../vagas.json');
+        const vagasPath = path.join(__dirname, '../../storage/vagas.json');
         const data = await fs.readFile(vagasPath, 'utf8');
         
         // Se o arquivo estiver vazio, retorna um array vazio

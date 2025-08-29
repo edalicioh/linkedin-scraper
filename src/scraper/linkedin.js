@@ -1,5 +1,5 @@
-const { linkedinEmail, linkedinPassword } = require('./config');
-const { loadSession, saveSession } = require('./session-manager');
+const { linkedinEmail, linkedinPassword } = require('../core/config');
+const { loadSession, saveSession } = require('../services/session-manager');
 
 /**
  * Garante que o usuário esteja logado no LinkedIn, utilizando uma sessão salva se possível.
@@ -43,7 +43,7 @@ async function ensureLoggedIn(page) {
     await saveSession(page);
   } catch (error) {
     console.error('Erro durante a navegação após o login:', error);
-    console.error('Falha na navegação após o login. Verifique se há um CAPTCHA ou erro de credenciais.');
+    console.error('Falha navegação após o login. Verifique se há um CAPTCHA ou erro de credenciais.');
     await page.screenshot({ path: 'login-error.png' });
     console.log('Screenshot salvo como "login-error.png" para depuração.');
     // Relança o erro para interromper a execução do script

@@ -1,8 +1,8 @@
-const { startBrowser, closeBrowser } = require('./src/browser');
-const { ensureLoggedIn, scrapeJobLinks, scrapeJobDetails } = require('./src/linkedin');
-const { appendAsJson } = require('./src/file-saver');
-const { parseSearchUrl, generatePaginationUrls, TIME_PERIODS } = require('./src/url-generator');
-const { linkedinEmail, linkedinPassword, maxPages, jobsPerPage, timePeriod } = require('./src/config');
+const { startBrowser, closeBrowser } = require('./src/core/browser');
+const { ensureLoggedIn, scrapeJobLinks, scrapeJobDetails } = require('./src/scraper/linkedin');
+const { appendAsJson } = require('./src/services/file-saver');
+const { parseSearchUrl, generatePaginationUrls, TIME_PERIODS } = require('./src/services/url-generator');
+const { linkedinEmail, linkedinPassword, maxPages, jobsPerPage, timePeriod } = require('./src/core/config');
 const fse = require('fs-extra');
 const path = require('path');
 
@@ -91,7 +91,7 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
       console.log('Nenhuma vaga nova foi extraída.');
     }
 
-  } catch (error) {
+ } catch (error) {
     console.error('Ocorreu um erro no processo principal do scraper:', error);
   } finally {
     // 7. Fechar o navegador
@@ -108,7 +108,7 @@ async function main() {
   const defaultKeywords = 'php'; // Pode ser substituído por um valor do .env se desejado
   const defaultLocation = 'Brasil'; // Pode ser substituído por um valor do .env se desejado
 
-  await runScraper(defaultKeywords, defaultLocation);
+ await runScraper(defaultKeywords, defaultLocation);
 }
 
 // Exporta a função para uso em outros módulos (como a API)

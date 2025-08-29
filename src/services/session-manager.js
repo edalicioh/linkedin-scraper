@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-const COOKIES_FILE_PATH = path.join(__dirname, '..', 'cookies.json');
+const COOKIES_FILE_PATH = path.join(__dirname, '..', 'storage', 'cookies.json');
 
 /**
  * Salva os cookies da sessão atual em um arquivo.
@@ -38,7 +38,7 @@ async function loadSession(page) {
       console.error('Erro ao carregar a sessão:', error);
     }
   }
-  return false;
+ return false;
 }
 
 module.exports = {
