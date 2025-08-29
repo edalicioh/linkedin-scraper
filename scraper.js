@@ -6,14 +6,18 @@ const { linkedinEmail, linkedinPassword, maxPages, jobsPerPage, timePeriod } = r
 const fse = require('fs-extra');
 const path = require('path');
 
-// URL de busca de vagas (pode ser ajustada conforme necessário)
-const SEARCH_URL = 'https://www.linkedin.com/jobs/search/?currentJobId=4286302776&distance=25.0&f_WT=2&geoId=106057199&keywords=php&origin=JOB_SEARCH_PAGE_KEYWORD_AUTOCOMPLETE&refresh=true';
-
 /**
- * Função principal que orquestra o processo de scraping.
+ * Função que orquestra o processo de scraping com base em keywords e location.
+ * @param {string} keywords - Palavras-chave para a busca.
+ * @param {string} location - Localização para a busca.
  */
-async function main() {
-  console.log('Iniciando o scraper de vagas do LinkedIn...');
+async function runScraper(keywords = 'php', location = 'Brasil') {
+ console.log(`Iniciando o scraper de vagas do LinkedIn para "${keywords}" em "${location}"...`);
+
+  // Gerar URL de busca dinamicamente
+  const encodedKeywords = encodeURIComponent(keywords);
+  const encodedLocation = encodeURIComponent(location);
+  const SEARCH_URL = `https://www.linkedin.com/jobs/search/?keywords=${encodedKeywords}&location=${encodedLocation}`;
 
   try {
     const browser = await startBrowser();
@@ -35,10 +39,17 @@ async function main() {
 
     // 3. Extrair links das vagas de todas as páginas
     let allJobLinks = [];
+    let totalResultsCount = null;
     for (const [index, url] of searchUrls.entries()) {
       console.log(`Processando página ${index + 1}/${searchUrls.length}: ${url}`);
-      const jobLinks = await scrapeJobLinks(page, url);
+      const { jobLinks, resultsCount } = await scrapeJobLinks(page, url);
       allJobLinks = allJobLinks.concat(jobLinks);
+      
+      // Usa a contagem de resultados da primeira página
+      if (index === 0 && resultsCount !== null) {
+        totalResultsCount = resultsCount;
+        console.log(`Total de resultados encontrados: ${totalResultsCount}`);
+      }
     }
     
     // 3. Criar um índice de jobId's já coletados
@@ -89,5 +100,21 @@ async function main() {
   }
 }
 
-// Executa o scraper
-main();
+/**
+ * Função principal para execução direta via CLI (mantém compatibilidade).
+ */
+async function main() {
+  // Valores padrão podem ser obtidos do .env ou definidos aqui
+  const defaultKeywords = 'php'; // Pode ser substituído por um valor do .env se desejado
+  const defaultLocation = 'Brasil'; // Pode ser substituído por um valor do .env se desejado
+
+  await runScraper(defaultKeywords, defaultLocation);
+}
+
+// Exporta a função para uso em outros módulos (como a API)
+module.exports = { runScraper };
+
+// Executa o scraper se este arquivo for chamado diretamente
+if (require.main === module) {
+  main();
+}

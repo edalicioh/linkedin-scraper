@@ -5,6 +5,7 @@
   "main": "scraper.js",
   "scripts": {
     "start": "node scraper.js",
+    "start:api": "node api.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -17,6 +18,7 @@
   "dependencies": {
     "cheerio": "^1.1.2",
     "dotenv": "^16.6.1",
+    "express": "^5.1.0",
     "fs-extra": "^11.3.1",
     "puppeteer": "^21.11.0"
   }

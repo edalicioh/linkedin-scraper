@@ -71,6 +71,44 @@ node scraper.js
 
 Na primeira execução, o scraper fará login e salvará os cookies. Nas execuções subsequentes, ele tentará reutilizar a sessão salva.
 
+
+### 4. 🌐 Executar a API (Opcional)
+
+A partir da refatoração, o projeto também inclui uma API REST simples para acionar o scraping.
+
+#### Iniciar o Servidor
+
+```bash
+npm run start:api
+# ou
+node api.js
+```
+
+O servidor API estará disponível em `http://localhost:3000` por padrão.
+
+#### Usar o Endpoint de Scraping
+
+Faça uma requisição `POST` para `http://localhost:3000/scrape` com um JSON contendo `keywords` e `location`:
+
+```bash
+curl -X POST http://localhost:3000/scrape \
+    -H "Content-Type: application/json" \
+    -d '{"keywords": "desenvolvedor javascript", "location": "São Paulo"}'
+```
+
+A API responderá imediatamente e o processo de scraping será iniciado em background. Os resultados serão salvos no arquivo `vagas.json` como de costume.
+
+#### Usar o Endpoint para Obter Jobs
+
+Você também pode obter a lista de jobs coletados fazendo uma requisição `GET` para `http://localhost:3000/api/jobs`:
+
+```bash
+curl -X GET http://localhost:3000/api/jobs
+```
+
+Se o arquivo `vagas.json` não existir ou estiver vazio, a API retornará um array vazio `[]`. Após a execução do scraper, este endpoint retornará os dados no formato JSON.
+
+
 ---
 
 ## 🧪 Testar em Ambiente Controlado

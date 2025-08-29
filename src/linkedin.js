@@ -65,6 +65,9 @@ async function scrapeJobLinks(page, searchUrl) {
     console.log('Aviso: Elementos de vaga não foram encontrados dentro do timeout esperado.');
   });
 
+  // Extrai a quantidade de resultados
+  const resultsCount = await scrapeResultsCount(page);
+
   console.log('Extraindo links das vagas...');
   const jobLinks = await page.evaluate(() => {
     const jobs = [];
@@ -91,7 +94,40 @@ async function scrapeJobLinks(page, searchUrl) {
   });
 
   console.log(`Encontradas ${jobLinks.length} vagas.`);
-  return jobLinks;
+  return {
+    jobLinks,
+    resultsCount
+  };
+}
+
+/**
+ * Extrai a quantidade de resultados da página de busca.
+ * @param {import('puppeteer').Page} page - A página do Puppeteer.
+ * @returns {Promise<number|null>} A quantidade de resultados ou null se não encontrado.
+ */
+async function scrapeResultsCount(page) {
+  try {
+    // Espera pelo elemento que contém a contagem de resultados
+    await page.waitForSelector('.jobs-search-results-list__text .jobs-search-results-list__subtitle span', { timeout: 5000 });
+    
+    const countText = await page.evaluate(() => {
+      const element = document.querySelector('.jobs-search-results-list__text .jobs-search-results-list__subtitle span');
+      return element ? element.textContent.trim() : null;
+    });
+    
+    if (countText) {
+      // Extrai apenas os números do texto (ex: "4,204 results" -> "4204")
+      const count = countText.match(/[\d,]+/);
+      if (count) {
+        // Remove as vírgulas e converte para número
+        return parseInt(count[0].replace(/,/g, ''), 10);
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao extrair a quantidade de resultados:', error);
+  }
+  
+  return null;
 }
 
 /**
@@ -205,4 +241,5 @@ module.exports = {
   ensureLoggedIn,
   scrapeJobLinks,
   scrapeJobDetails,
+  scrapeResultsCount
 };
