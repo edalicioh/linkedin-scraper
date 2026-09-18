@@ -1,23 +1,24 @@
 const { startBrowser, closeBrowser } = require('./src/core/browser');
 const { ensureLoggedIn, scrapeJobLinks, scrapeJobDetails } = require('./src/scraper/linkedin');
-const { appendAsJson, readJsonArray } = require('./src/services/file-saver');
 const { parseSearchUrl, generatePaginationUrls, TIME_PERIODS } = require('./src/services/url-generator');
 const config = require('./src/core/config');
+const { createDatabase } = require('./src/db/database');
+const { createJobRepository } = require('./src/repositories/jobRepository');
 
 async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
   config.validateCredentials();
   const limit = config.validateScrapeLimit(options.limit);
-  const storageDir = options.storageDir || config.STORAGE_DIR;
   const overrides = { ...options, ...(options.dependencies || {}) };
   const dependencies = {
     startBrowser,
     ensureLoggedIn,
     scrapeJobLinks,
     scrapeJobDetails,
-    appendAsJson,
-    readJsonArray,
     ...overrides,
   };
+  const database = options.database || createDatabase(options.dbPath);
+  const repository = options.repository || createJobRepository(database);
+  const ownsDatabase = !options.database;
   const pageLimit = options.maxPages || config.maxPages;
   const pageSize = options.jobsPerPage || config.jobsPerPage;
   const selectedTimePeriod = options.timePeriod || config.timePeriod;
@@ -55,8 +56,7 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
       }
     }
 
-    const existingVagas = await dependencies.readJsonArray('vagas.json', { storageDir });
-    const existingJobIds = new Set(existingVagas.map((vaga) => vaga.jobId).filter(Boolean));
+    const existingJobIds = repository.findExistingIds(allJobLinks.map((job) => job && job.jobId));
     console.log(`Encontrados ${existingJobIds.size} jobId's já coletados.`);
 
     const filteredJobs = allJobLinks.filter((job) => {
@@ -77,11 +77,13 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
       const jobData = await dependencies.scrapeJobDetails(page, job.url);
       jobData.jobId = job.jobId;
       jobData.extractionDate = extractionDate;
+      jobData.queryLocation = location;
       jobs.push(jobData);
     }
 
     if (jobs.length > 0) {
-      await dependencies.appendAsJson('vagas.json', jobs, { storageDir });
+      repository.upsertMany(jobs);
+      console.log(`Dados salvos com sucesso. Total de vagas gravadas: ${jobs.length}`);
     } else {
       console.log('Nenhuma vaga nova foi extraída.');
     }
@@ -100,6 +102,9 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
       } catch (error) {
         console.error('Erro ao fechar a página do scraper:', error);
       }
+    }
+    if (ownsDatabase) {
+      database.close();
     }
     console.log('Scraper finalizado.');
   }

@@ -12,3 +12,8 @@ storage/.*.tmp
 npm-debug.log*
 storage/screenshots/
 login-error.png
+*.bak
+storage/*.db
+storage/*.db-*
+storage/*.sqlite
+storage/*.sqlite-*

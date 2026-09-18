@@ -23,6 +23,7 @@
     "node": ">=20.18.1"
   },
   "dependencies": {
+    "better-sqlite3": "^12.11.1",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "fs-extra": "^11.3.1",
