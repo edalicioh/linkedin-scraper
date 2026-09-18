@@ -1,4 +1,6 @@
 node_modules/
 .env
-vagas.json
-cookies.json
+storage/vagas.json
+storage/cookies.json
+storage/.*.tmp
+login-error.png

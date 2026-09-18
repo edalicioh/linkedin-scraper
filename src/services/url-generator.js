@@ -26,6 +26,7 @@ function parseSearchUrl(url) {
     currentJobId: params.get('currentJobId'),
     timePeriod: params.get('f_TPR'),
     keywords: params.get('keywords'),
+    location: params.get('location'),
     origin: params.get('origin'),
     start: parseInt(params.get('start')) || 0,
   };
@@ -38,6 +39,7 @@ function parseSearchUrl(url) {
  * @param {string} [components.currentJobId] - ID da vaga atual
  * @param {string} [components.timePeriod] - Período de tempo (usar valores do TIME_PERIODS)
  * @param {string} [components.keywords] - Palavras-chave de busca
+ * @param {string} [components.location] - Localização da busca
  * @param {string} [components.origin] - Origem da busca
  * @param {number} [components.start=0] - Ponto de início para paginação
  * @returns {string} URL de busca gerada
@@ -48,6 +50,7 @@ function generateSearchUrl(components) {
     currentJobId,
     timePeriod,
     keywords,
+    location,
     origin,
     start = 0
   } = components;
@@ -57,6 +60,7 @@ function generateSearchUrl(components) {
   if (currentJobId) params.set('currentJobId', currentJobId);
   if (timePeriod) params.set('f_TPR', timePeriod);
   if (keywords) params.set('keywords', keywords);
+  if (location) params.set('location', location);
   if (origin) params.set('origin', origin);
   if (start > 0) params.set('start', start.toString());
   
