@@ -8,7 +8,8 @@ const os = require('node:os');
 const path = require('node:path');
 
 const { runScraper } = require('../scraper');
-const { saveAsJson } = require('../src/services/file-saver');
+const { createDatabase } = require('../src/db/database');
+const { createJobRepository } = require('../src/repositories/jobRepository');
 
 async function withTempDirectory(callback) {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'linkedin-scraper-'));
@@ -20,16 +21,19 @@ async function withTempDirectory(callback) {
 }
 
 test('deduplica vagas existentes e repetidas na execução e retorna resumo', () => withTempDirectory(async (storageDir) => {
-  await saveAsJson('vagas.json', [{ jobId: 'existing' }], { storageDir });
+  const dbPath = path.join(storageDir, 'jobs.db');
+  const seedDb = createDatabase(dbPath);
+  createJobRepository(seedDb).upsert({ jobId: 'existing', url: 'https://jobs/existing' });
+  seedDb.close();
+
   const visitedUrls = [];
   const details = [];
-
   const result = await runScraper('node', 'São Paulo', {
     limit: 2,
     maxPages: 2,
-    storageDir,
+    dbPath,
     dependencies: {
-      startBrowser: async () => ({ newPage: async () => ({}) }),
+      startBrowser: async () => ({ newPage: async () => ({ close: async () => {} }) }),
       ensureLoggedIn: async () => {},
       scrapeJobLinks: async (_page, url) => {
         visitedUrls.push(url);
@@ -38,14 +42,14 @@ test('deduplica vagas existentes e repetidas na execução e retorna resumo', ()
           resultsCount: page === 1 ? 4 : null,
           jobLinks: page === 1
             ? [
-              { jobId: 'existing', url: 'https://jobs/existing' },
-              { jobId: 'new-1', url: 'https://jobs/new-1' },
-              { jobId: 'new-1', url: 'https://jobs/new-1-duplicate' },
-            ]
+                { jobId: 'existing', url: 'https://jobs/existing' },
+                { jobId: 'new-1', url: 'https://jobs/new-1' },
+                { jobId: 'new-1', url: 'https://jobs/new-1-duplicate' },
+              ]
             : [
-              { jobId: 'new-2', url: 'https://jobs/new-2' },
-              { jobId: 'new-3', url: 'https://jobs/new-3' },
-            ],
+                { jobId: 'new-2', url: 'https://jobs/new-2' },
+                { jobId: 'new-3', url: 'https://jobs/new-3' },
+              ],
         };
       },
       scrapeJobDetails: async (_page, url) => {
@@ -64,15 +68,18 @@ test('deduplica vagas existentes e repetidas na execução e retorna resumo', ()
   assert.ok(visitedUrls.every((url) => url.includes('location=S%C3%A3o+Paulo')));
   assert.deepEqual(details, ['https://jobs/new-1', 'https://jobs/new-2']);
 
-  const saved = JSON.parse(await fs.readFile(path.join(storageDir, 'vagas.json'), 'utf8'));
+  const readDb = createDatabase(dbPath);
+  const saved = createJobRepository(readDb).listAll();
+  readDb.close();
   assert.deepEqual(saved.map((job) => job.jobId), ['existing', 'new-1', 'new-2']);
 }));
 
-test('relança falhas fatais do scraper', async () => {
+test('relança falhas fatais do scraper', () => withTempDirectory(async (storageDir) => {
   await assert.rejects(
     runScraper('node', 'Brasil', {
+      dbPath: path.join(storageDir, 'jobs.db'),
       dependencies: {
-        startBrowser: async () => ({ newPage: async () => ({}) }),
+        startBrowser: async () => ({ newPage: async () => ({ close: async () => {} }) }),
         ensureLoggedIn: async () => {},
         scrapeJobLinks: async () => {
           throw new Error('falha de navegação');
@@ -81,4 +88,4 @@ test('relança falhas fatais do scraper', async () => {
     }),
     /falha de navegação/,
   );
-});
+}));

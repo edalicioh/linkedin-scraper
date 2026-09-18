@@ -17,5 +17,6 @@ function createJobRouter(dependencies) {
 
 const router = createJobRouter();
 router.createJobRouter = createJobRouter;
+router.createJobRoutes = createJobRouter;
 
 module.exports = router;

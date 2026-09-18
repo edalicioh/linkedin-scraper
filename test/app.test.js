@@ -43,13 +43,16 @@ test('POST /api/scrape validates required fields', async () => {
   });
 });
 
-test('GET /api/jobs reports missing storage without scraping', async () => {
+test('GET /api/jobs returns an empty paginated result without scraping', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/api/jobs`);
 
-    assert.equal(response.status, 404);
+    assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), {
-      message: 'Arquivo de jobs não encontrado. Execute o scraper primeiro.',
+      items: [],
+      page: 1,
+      limit: 25,
+      total: 0,
     });
   });
 });
