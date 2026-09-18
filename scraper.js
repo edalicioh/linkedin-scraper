@@ -1,120 +1,137 @@
 const { startBrowser, closeBrowser } = require('./src/core/browser');
 const { ensureLoggedIn, scrapeJobLinks, scrapeJobDetails } = require('./src/scraper/linkedin');
-const { appendAsJson } = require('./src/services/file-saver');
 const { parseSearchUrl, generatePaginationUrls, TIME_PERIODS } = require('./src/services/url-generator');
-const { linkedinEmail, linkedinPassword, maxPages, jobsPerPage, timePeriod } = require('./src/core/config');
-const fse = require('fs-extra');
-const path = require('path');
+const config = require('./src/core/config');
+const { createDatabase } = require('./src/db/database');
+const { createJobRepository } = require('./src/repositories/jobRepository');
 
-/**
- * Função que orquestra o processo de scraping com base em keywords e location.
- * @param {string} keywords - Palavras-chave para a busca.
- * @param {string} location - Localização para a busca.
- */
-async function runScraper(keywords = 'php', location = 'Brasil') {
- console.log(`Iniciando o scraper de vagas do LinkedIn para "${keywords}" em "${location}"...`);
+async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
+  config.validateCredentials();
+  const limit = config.validateScrapeLimit(options.limit);
+  const overrides = { ...options, ...(options.dependencies || {}) };
+  const dependencies = {
+    startBrowser,
+    ensureLoggedIn,
+    scrapeJobLinks,
+    scrapeJobDetails,
+    ...overrides,
+  };
+  const database = options.database || createDatabase(options.dbPath);
+  const repository = options.repository || createJobRepository(database);
+  const ownsDatabase = !options.database;
+  const pageLimit = options.maxPages || config.maxPages;
+  const pageSize = options.jobsPerPage || config.jobsPerPage;
+  const selectedTimePeriod = options.timePeriod || config.timePeriod;
+  const browserHeadless = overrides.browserHeadless ?? config.headless;
 
-  // Gerar URL de busca dinamicamente
+  console.log(`Iniciando o scraper de vagas do LinkedIn para "${keywords}" em "${location}"...`);
+
   const encodedKeywords = encodeURIComponent(keywords);
   const encodedLocation = encodeURIComponent(location);
-  const SEARCH_URL = `https://www.linkedin.com/jobs/search/?keywords=${encodedKeywords}&location=${encodedLocation}`;
+  const searchUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodedKeywords}&location=${encodedLocation}`;
 
+  let page;
   try {
-    const browser = await startBrowser();
-    const page = await browser.newPage();
+    const browser = await dependencies.startBrowser({ headless: browserHeadless });
+    page = await browser.newPage();
+    await dependencies.ensureLoggedIn(page);
 
-    // 1. Garantir que o usuário está logado (com sessão ou login manual)
-    await ensureLoggedIn(page);
-
-    // 2. Gerar URLs de múltiplas páginas
-    const baseComponents = parseSearchUrl(SEARCH_URL);
-    
-    // Adicionar filtro de período se especificado
-    if (timePeriod && TIME_PERIODS[timePeriod]) {
-      baseComponents.timePeriod = TIME_PERIODS[timePeriod];
+    const baseComponents = parseSearchUrl(searchUrl);
+    if (selectedTimePeriod && TIME_PERIODS[selectedTimePeriod]) {
+      baseComponents.timePeriod = TIME_PERIODS[selectedTimePeriod];
     }
-    
-    const searchUrls = generatePaginationUrls(baseComponents, maxPages, jobsPerPage);
+
+    const searchUrls = generatePaginationUrls(baseComponents, pageLimit, pageSize);
     console.log(`Geradas ${searchUrls.length} URLs para busca com paginação.`);
 
-    // 3. Extrair links das vagas de todas as páginas
     let allJobLinks = [];
     let totalResultsCount = null;
     for (const [index, url] of searchUrls.entries()) {
       console.log(`Processando página ${index + 1}/${searchUrls.length}: ${url}`);
-      const { jobLinks, resultsCount } = await scrapeJobLinks(page, url);
+      const { jobLinks, resultsCount } = await dependencies.scrapeJobLinks(page, url);
       allJobLinks = allJobLinks.concat(jobLinks);
-      
-      // Usa a contagem de resultados da primeira página
       if (index === 0 && resultsCount !== null) {
         totalResultsCount = resultsCount;
         console.log(`Total de resultados encontrados: ${totalResultsCount}`);
       }
     }
-    
-    // 3. Criar um índice de jobId's já coletados
-    let existingJobIds = new Set();
-    try {
-      const vagasPath = path.join(__dirname, 'vagas.json');
-      const existingVagas = await fse.readJson(vagasPath);
-      if (Array.isArray(existingVagas)) {
-        existingJobIds = new Set(existingVagas.map(vaga => vaga.jobId).filter(id => id));
-        console.log(`Encontrados ${existingJobIds.size} jobId's já coletados.`);
+
+    const existingJobIds = repository.findExistingIds(allJobLinks.map((job) => job && job.jobId));
+    console.log(`Encontrados ${existingJobIds.size} jobId's já coletados.`);
+
+    const filteredJobs = allJobLinks.filter((job) => {
+      if (!job || !job.jobId || existingJobIds.has(job.jobId)) {
+        return false;
       }
-    } catch (err) {
-      console.log('Nenhum arquivo vagas.json encontrado ou arquivo corrompido. Iniciando do zero.');
-    }
-    
-    // 4. Filtrar vagas que já foram coletadas
-    const filteredJobs = allJobLinks.filter(job => !existingJobIds.has(job.jobId));
+      existingJobIds.add(job.jobId);
+      return true;
+    });
     console.log(`Total de vagas encontradas: ${allJobLinks.length}. Vagas novas após filtragem: ${filteredJobs.length}`);
-    
-    // Limita a 5 vagas para teste, para não sobrecarregar
-    const linksToScrape = filteredJobs.slice(0, 5);
+
+    const linksToScrape = filteredJobs.slice(0, limit);
     console.log(`Iniciando extração de detalhes para ${linksToScrape.length} vagas...`);
 
-    // 5. Extrair detalhes de cada vaga
     const jobs = [];
-    const extractionDate = new Date().toISOString(); // Data e hora da extração
+    const extractionDate = new Date().toISOString();
     for (const job of linksToScrape) {
-      const jobData = await scrapeJobDetails(page, job.url);
-      // Adiciona o jobId e a data de extração aos dados da vaga
+      const jobData = await dependencies.scrapeJobDetails(page, job.url);
       jobData.jobId = job.jobId;
       jobData.extractionDate = extractionDate;
+      jobData.queryLocation = location;
       jobs.push(jobData);
     }
 
-    // 6. Adicionar os dados ao banco de dados (vagas.json)
     if (jobs.length > 0) {
-      await appendAsJson('vagas.json', jobs);
+      repository.upsertMany(jobs);
+      console.log(`Dados salvos com sucesso. Total de vagas gravadas: ${jobs.length}`);
     } else {
       console.log('Nenhuma vaga nova foi extraída.');
     }
 
- } catch (error) {
-    console.error('Ocorreu um erro no processo principal do scraper:', error);
+    return {
+      found: allJobLinks.length,
+      ignored: allJobLinks.length - filteredJobs.length,
+      processed: jobs.length,
+      saved: jobs.length,
+      totalResults: totalResultsCount,
+      counts: {
+        results: totalResultsCount,
+        links: allJobLinks.length,
+        jobs: jobs.length,
+        found: allJobLinks.length,
+        ignored: allJobLinks.length - filteredJobs.length,
+        processed: jobs.length,
+        saved: jobs.length,
+      },
+    };
   } finally {
-    // 7. Fechar o navegador
-    //await closeBrowser();
+    if (page) {
+      try {
+        await page.close();
+      } catch (error) {
+        console.error('Erro ao fechar a página do scraper:', error);
+      }
+    }
+    if (ownsDatabase) {
+      database.close();
+    }
     console.log('Scraper finalizado.');
   }
 }
 
-/**
- * Função principal para execução direta via CLI (mantém compatibilidade).
- */
-async function main() {
-  // Valores padrão podem ser obtidos do .env ou definidos aqui
-  const defaultKeywords = 'php'; // Pode ser substituído por um valor do .env se desejado
-  const defaultLocation = 'Brasil'; // Pode ser substituído por um valor do .env se desejado
-
- await runScraper(defaultKeywords, defaultLocation);
+async function main(dependencies = {}) {
+  try {
+    await (dependencies.runScraper || runScraper)('php', 'Brasil');
+  } finally {
+    await (dependencies.closeBrowser || closeBrowser)();
+  }
 }
 
-// Exporta a função para uso em outros módulos (como a API)
-module.exports = { runScraper };
+module.exports = { runScraper, main };
 
-// Executa o scraper se este arquivo for chamado diretamente
 if (require.main === module) {
-  main();
+  main().catch((error) => {
+    console.error('Erro ao finalizar o scraper:', error);
+    process.exitCode = 1;
+  });
 }

@@ -1,0 +1,12 @@
+node_modules/
+storage/
+src/storage/
+.docs/
+AGENTS.md
+MELHORIAS.md
+melhorias/
+scraper.js
+src/core/
+src/routes/
+src/scraper/
+src/services/
