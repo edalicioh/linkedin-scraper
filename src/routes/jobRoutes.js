@@ -1,11 +1,18 @@
 const express = require('express');
-const router = express.Router();
-const { startScraping, getJobs } = require('../controllers/jobController');
+const { createJobController } = require('../controllers/jobController');
 
-// Rota para iniciar o scraping
-router.post('/scrape', startScraping);
+function createJobRouter(dependencies) {
+  const router = express.Router();
+  const controller = dependencies && dependencies.controller
+    ? dependencies.controller
+    : createJobController(dependencies);
 
-// Rota para obter os jobs
-router.get('/jobs', getJobs);
+  router.post('/scrape', controller.startScraping);
+  router.get('/jobs', controller.getJobs);
+  return router;
+}
+
+const router = createJobRouter();
+router.createJobRouter = createJobRouter;
 
 module.exports = router;

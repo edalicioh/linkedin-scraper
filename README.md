@@ -112,10 +112,10 @@ A API responderá imediatamente e o processo de scraping será iniciado em backg
 Você também pode obter a lista de jobs coletados fazendo uma requisição `GET` para `http://localhost:3000/api/jobs`:
 
 ```bash
-curl -X GET http://localhost:3000/api/jobs
+curl -X GET "http://localhost:3000/api/jobs?page=1&limit=25"
 ```
 
-Se o arquivo `vagas.json` não existir ou estiver vazio, a API retornará um array vazio `[]`. Após a execução do scraper, este endpoint retornará os dados no formato JSON.
+O endpoint retorna `{ "items": [], "page": 1, "limit": 25, "total": 0 }`. `page` começa em 1, `limit` usa 25 por padrão e aceita no máximo 100. Também são aceitos os filtros `search`, `type`, `company` e `location`; `search` procura sem diferenciar maiúsculas e minúsculas no título e na empresa. Parâmetros inválidos retornam `400` com erro JSON. Se `vagas.json` não existir ou estiver vazio, a API retorna uma lista vazia.
 
 
 ---
