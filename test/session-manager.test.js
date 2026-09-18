@@ -20,25 +20,25 @@ test('salva e carrega cookies legados como array', () =>
     const filePath = path.join(directory, 'nested', 'cookies.json');
     const cookies = [{ name: 'li_at', value: 'session', domain: '.linkedin.com' }];
     const received = [];
-    const page = {
+    const context = {
       cookies: async () => cookies,
-      setCookie: async (...loadedCookies) => received.push(...loadedCookies),
+      addCookies: async (loadedCookies) => received.push(...loadedCookies),
     };
 
-    await saveSession(page, filePath);
+    await saveSession(context, filePath);
     assert.deepEqual(JSON.parse(await fs.readFile(filePath, 'utf8')), cookies);
-    assert.equal(await loadSession(page, filePath), true);
+    assert.equal(await loadSession(context, filePath), true);
     assert.deepEqual(received, cookies);
   }));
 
 test('trata arquivo de cookies ausente ou array vazio como sessao inexistente', () =>
   withTempDirectory(async (directory) => {
-    const page = { setCookie: async () => assert.fail('nao deveria carregar cookies') };
-    assert.equal(await loadSession(page, path.join(directory, 'missing.json')), false);
+    const context = { addCookies: async () => assert.fail('nao deveria carregar cookies') };
+    assert.equal(await loadSession(context, path.join(directory, 'missing.json')), false);
 
     const emptyPath = path.join(directory, 'empty.json');
     await fs.writeFile(emptyPath, '[]');
-    assert.equal(await loadSession(page, emptyPath), false);
+    assert.equal(await loadSession(context, emptyPath), false);
   }));
 
 test('propaga JSON de cookies corrompido', () =>
@@ -46,5 +46,37 @@ test('propaga JSON de cookies corrompido', () =>
     const filePath = path.join(directory, 'corrupt.json');
     await fs.writeFile(filePath, '{not-json');
 
-    await assert.rejects(loadSession({ setCookie: async () => {} }, filePath), SyntaxError);
+    await assert.rejects(loadSession({ addCookies: async () => {} }, filePath), SyntaxError);
+  }));
+
+test('normaliza cookies legados e ignora campos extras', () =>
+  withTempDirectory(async (directory) => {
+    const filePath = path.join(directory, 'cookies.json');
+    await fs.writeFile(
+      filePath,
+      JSON.stringify([
+        {
+          name: 'li_at',
+          value: 'session',
+          domain: '.linkedin.com',
+          sameSite: 'lax',
+          expirationDate: 123,
+          hostOnly: false,
+        },
+      ])
+    );
+    const received = [];
+
+    assert.equal(
+      await loadSession({ addCookies: async (cookies) => received.push(...cookies) }, filePath),
+      true
+    );
+    assert.deepEqual(received, [
+      {
+        name: 'li_at',
+        value: 'session',
+        domain: '.linkedin.com',
+        sameSite: 'Lax',
+      },
+    ]);
   }));
