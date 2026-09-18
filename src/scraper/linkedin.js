@@ -62,7 +62,7 @@ function isExternalUrl(value) {
 
 /**
  * Reads challenge signals without relying on a specific LinkedIn selector.
- * @param {import('puppeteer').Page} page
+ * @param {import('playwright').Page} page
  * @returns {Promise<{challenge: string, url: string}|null>}
  */
 async function detectAuthenticationChallenge(page) {
@@ -134,6 +134,17 @@ function randomDelay(min, max, random) {
   return Math.round(min + randomValue * (max - min));
 }
 
+async function waitForVisibleSelector(page, selector, timeout = 10000) {
+  if (typeof page.locator === 'function') {
+    const locator = page.locator(selector).first();
+    await locator.waitFor({ state: 'visible', timeout });
+    return locator;
+  }
+
+  await page.waitForSelector(selector, { visible: true, timeout });
+  return selector;
+}
+
 /**
  * Types credentials with a deterministic injectable delay in tests.
  */
@@ -142,6 +153,12 @@ async function typeWithDelay(page, selector, value, options = {}) {
   const max = options.max ?? options.maxDelay ?? 120;
   const random = options.random || Math.random;
   const delay = randomDelay(min, Math.max(min, max), random);
+  if (selector && typeof selector.pressSequentially === 'function') {
+    return selector.pressSequentially(value, { delay });
+  }
+  if (typeof page.locator === 'function') {
+    return page.locator(selector).first().pressSequentially(value, { delay });
+  }
   return page.type(selector, value, { delay });
 }
 
@@ -154,11 +171,7 @@ async function findFirstSelector(page, selectors, timeout = 10000) {
     if (remaining <= 0) break;
 
     try {
-      await page.waitForSelector(selector, {
-        visible: true,
-        timeout: Math.min(1500, remaining),
-      });
-      return selector;
+      return await waitForVisibleSelector(page, selector, Math.min(1500, remaining));
     } catch (error) {
       lastError = error;
     }
@@ -234,47 +247,29 @@ async function collectJobLinks(page, options = {}) {
   return [...jobsById.values()];
 }
 
-function matchesTargetOpener(target, sourceTarget) {
-  if (!target || typeof target.opener !== 'function') return false;
-  const opener = target.opener();
-  return opener === sourceTarget;
-}
-
-function addExternalTargetListener(page, onPage) {
-  const browser = typeof page.browser === 'function' ? page.browser() : null;
-  const sourceTarget = typeof page.target === 'function' ? page.target() : null;
-  if (!browser || typeof browser.on !== 'function' || !sourceTarget) return () => {};
-
-  const handler = async target => {
-    if (!matchesTargetOpener(target, sourceTarget)) return;
-    try {
-      const popup = await target.page();
-      if (popup) onPage(popup);
-    } catch (_error) {
-      // The target can close before Puppeteer creates its Page object.
-    }
-  };
-  browser.on('targetcreated', handler);
-  return () => {
-    if (typeof browser.off === 'function') browser.off('targetcreated', handler);
-    else if (typeof browser.removeListener === 'function') browser.removeListener('targetcreated', handler);
-  };
-}
-
 async function waitForModal(page, timeoutMs, wait) {
   const deadline = Date.now() + timeoutMs;
   let iterations = 0;
   while (Date.now() < deadline && iterations < 20) {
     iterations += 1;
-    if (typeof page.$ === 'function' && await page.$('.artdeco-modal')) return true;
-    await wait(Math.min(50, deadline - Date.now()));
+    if (typeof page.locator === 'function') {
+      try {
+        await page.locator('.artdeco-modal').first().waitFor({ state: 'visible', timeout: 50 });
+        return true;
+      } catch (_error) {
+        // Continue polling until the modal timeout.
+      }
+    } else if (typeof page.$ === 'function' && await page.$('.artdeco-modal')) {
+      return true;
+    }
+    await wait(Math.max(0, Math.min(50, deadline - Date.now())));
   }
   return false;
 }
 
 /**
  * Clicks an external application action and captures only a popup opened by
- * the supplied page. The listener is installed before the click and every
+ * the supplied page. The popup waiter is installed before the click and every
  * page created by this helper is closed in finally.
  */
 async function captureExternalUrl(page, options = {}) {
@@ -283,21 +278,18 @@ async function captureExternalUrl(page, options = {}) {
   const originalUrl = getPageUrl(page);
   const popups = new Set();
   let popup;
-  let removeTargetListener = () => {};
-  let popupHandler;
+  let popupPromise;
 
   try {
-    removeTargetListener = addExternalTargetListener(page, candidate => {
-      popups.add(candidate);
-      popup ||= candidate;
-    });
-
-    if (typeof page.once === 'function') {
-      popupHandler = candidate => {
-        popups.add(candidate);
-        popup ||= candidate;
-      };
-      page.once('popup', popupHandler);
+    if (typeof page.waitForEvent === 'function') {
+      popupPromise = page
+        .waitForEvent('popup', { timeout: timeoutMs })
+        .then(candidate => {
+          popup = candidate;
+          popups.add(candidate);
+          return candidate;
+        })
+        .catch(() => null);
     }
 
     await page.click('.jobs-apply-button--top-card');
@@ -317,7 +309,7 @@ async function captureExternalUrl(page, options = {}) {
 
       const currentUrl = getPageUrl(page);
       if (currentUrl !== originalUrl && isExternalUrl(currentUrl)) return currentUrl;
-      await wait(Math.min(50, deadline - Date.now()));
+      await wait(Math.max(0, Math.min(50, deadline - Date.now())));
     }
 
     return null;
@@ -325,8 +317,6 @@ async function captureExternalUrl(page, options = {}) {
     console.error('Erro ao tentar obter URL externa:', error.message);
     return null;
   } finally {
-    removeTargetListener();
-    if (popupHandler && typeof page.removeListener === 'function') page.removeListener('popup', popupHandler);
     for (const candidate of popups) {
       try {
         if (typeof candidate.isClosed !== 'function' || !candidate.isClosed()) await candidate.close();
@@ -343,16 +333,19 @@ async function captureExternalUrl(page, options = {}) {
  */
 async function ensureLoggedIn(page, options = {}) {
   const { linkedinEmail, linkedinPassword } = require('../core/config');
+  const loadSessionFn = options.loadSession || loadSession;
+  const saveSessionFn = options.saveSession || saveSession;
+  const credentials = options.credentials || {};
   const screenshotOptions = { prefix: 'linkedin-login-failure', ...options.screenshot };
 
   try {
-    const isSessionLoaded = await loadSession(page);
+    const isSessionLoaded = await loadSessionFn(page, options.sessionFilePath);
     if (isSessionLoaded) {
       console.log('Verificando validade da sessão carregada...');
       await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
       await assertNoAuthenticationChallenge(page);
       try {
-        await page.waitForSelector('#global-nav', { timeout: 10000 });
+      await waitForVisibleSelector(page, '#global-nav', 10000);
         console.log('Sessão válida carregada. Pulando login.');
         return;
       } catch (_error) {
@@ -361,7 +354,7 @@ async function ensureLoggedIn(page, options = {}) {
     }
 
     console.log('Navegando para a página de login do LinkedIn...');
-    await page.goto('https://www.linkedin.com/login', { waitUntil: 'networkidle2' });
+    await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded' });
     await assertNoAuthenticationChallenge(page);
 
     console.log('Preenchendo credenciais...');
@@ -384,20 +377,34 @@ async function ensureLoggedIn(page, options = {}) {
       'form input[placeholder*="password" i]',
       'form input[placeholder*="senha" i]',
     ]);
-    await typeWithDelay(page, usernameSelector, linkedinEmail, options.typing);
-    await typeWithDelay(page, passwordSelector, linkedinPassword, options.typing);
+    await typeWithDelay(
+      page,
+      usernameSelector,
+      credentials.linkedinEmail ?? linkedinEmail,
+      options.typing
+    );
+    await typeWithDelay(
+      page,
+      passwordSelector,
+      credentials.linkedinPassword ?? linkedinPassword,
+      options.typing
+    );
     const submitSelector = await findFirstSelector(page, [
       'button[type="submit"]',
       '.login__form_action_container button',
       'button[data-id*="sign-in" i]',
     ]);
-    await page.click(submitSelector);
+    if (submitSelector && typeof submitSelector.click === 'function') {
+      await submitSelector.click();
+    } else {
+      await page.click(submitSelector);
+    }
     await assertNoAuthenticationChallenge(page);
 
     console.log('Aguardando confirmação de login...');
-    await page.waitForSelector('#global-nav', { timeout: 30000 });
+    await waitForVisibleSelector(page, '#global-nav', 30000);
     console.log('Login bem-sucedido!');
-    await saveSession(page);
+    await saveSessionFn(page, options.sessionFilePath);
   } catch (error) {
     const challenge = error instanceof AuthenticationChallengeError
       ? error
@@ -416,7 +423,7 @@ async function scrapeJobLinks(page, searchUrl, options = {}) {
   await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
   await assertNoAuthenticationChallenge(page);
 
-  await page.waitForSelector('a.job-card-container__link', { timeout: options.selectorTimeoutMs ?? 10000 })
+  await waitForVisibleSelector(page, 'a.job-card-container__link', options.selectorTimeoutMs ?? 10000)
     .catch(() => console.log('Aviso: Elementos de vaga não foram encontrados dentro do timeout esperado.'));
 
   const resultsCount = await scrapeResultsCount(page);
@@ -427,7 +434,11 @@ async function scrapeJobLinks(page, searchUrl, options = {}) {
 
 async function scrapeResultsCount(page) {
   try {
-    await page.waitForSelector('.jobs-search-results-list__text .jobs-search-results-list__subtitle span', { timeout: 5000 });
+    await waitForVisibleSelector(
+      page,
+      '.jobs-search-results-list__text .jobs-search-results-list__subtitle span',
+      5000
+    );
     const countText = await page.evaluate(() => {
       const element = document.querySelector('.jobs-search-results-list__text .jobs-search-results-list__subtitle span');
       return element ? element.textContent.trim() : null;
@@ -444,7 +455,7 @@ async function scrapeJobDetails(page, jobUrl, options = {}) {
   await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
   await assertNoAuthenticationChallenge(page);
 
-  await page.waitForSelector('.t-24.job-details-jobs-unified-top-card__job-title', { timeout: 10000 })
+  await waitForVisibleSelector(page, '.t-24.job-details-jobs-unified-top-card__job-title', 10000)
     .catch(() => console.log('Aviso: Elemento de título não encontrado dentro do timeout.'));
 
   const jobData = await page.evaluate(() => {

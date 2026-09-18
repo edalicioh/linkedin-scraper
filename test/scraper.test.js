@@ -29,12 +29,19 @@ test('deduplica vagas existentes e repetidas na execução e retorna resumo', ()
 
     const visitedUrls = [];
     const details = [];
+    const context = {
+      closeCalls: 0,
+      newPage: async () => ({ close: async () => {} }),
+      close: async function close() {
+        this.closeCalls += 1;
+      },
+    };
     const result = await runScraper('node', 'São Paulo', {
       limit: 2,
       maxPages: 2,
       dbPath,
       dependencies: {
-        startBrowser: async () => ({ newPage: async () => ({ close: async () => {} }) }),
+        startBrowser: async () => ({ newContext: async () => context }),
         ensureLoggedIn: async () => {},
         scrapeJobLinks: async (_page, url) => {
           visitedUrls.push(url);
@@ -77,6 +84,7 @@ test('deduplica vagas existentes e repetidas na execução e retorna resumo', ()
       saved.map((job) => job.jobId),
       ['existing', 'new-1', 'new-2']
     );
+    assert.equal(context.closeCalls, 1);
   }));
 
 test('relança falhas fatais do scraper', () =>
@@ -85,7 +93,12 @@ test('relança falhas fatais do scraper', () =>
       runScraper('node', 'Brasil', {
         dbPath: path.join(storageDir, 'jobs.db'),
         dependencies: {
-          startBrowser: async () => ({ newPage: async () => ({ close: async () => {} }) }),
+          startBrowser: async () => ({
+            newContext: async () => ({
+              newPage: async () => ({ close: async () => {} }),
+              close: async () => {},
+            }),
+          }),
           ensureLoggedIn: async () => {},
           scrapeJobLinks: async () => {
             throw new Error('falha de navegação');

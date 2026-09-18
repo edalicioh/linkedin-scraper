@@ -1,5 +1,6 @@
 const { startBrowser, closeBrowser } = require('./src/core/browser');
 const { ensureLoggedIn, scrapeJobLinks, scrapeJobDetails } = require('./src/scraper/linkedin');
+const { loadSession, saveSession } = require('./src/services/session-manager');
 const { parseSearchUrl, generatePaginationUrls, TIME_PERIODS } = require('./src/services/url-generator');
 const config = require('./src/core/config');
 const { createDatabase } = require('./src/db/database');
@@ -11,6 +12,10 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
   const overrides = { ...options, ...(options.dependencies || {}) };
   const dependencies = {
     startBrowser,
+    createContext: (browser, contextOptions) => browser.newContext(contextOptions),
+    createPage: context => context.newPage(),
+    loadSession,
+    saveSession,
     ensureLoggedIn,
     scrapeJobLinks,
     scrapeJobDetails,
@@ -30,11 +35,18 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
   const encodedLocation = encodeURIComponent(location);
   const searchUrl = `https://www.linkedin.com/jobs/search/?keywords=${encodedKeywords}&location=${encodedLocation}`;
 
+  let context;
   let page;
   try {
     const browser = await dependencies.startBrowser({ headless: browserHeadless });
-    page = await browser.newPage();
-    await dependencies.ensureLoggedIn(page);
+    context = options.context || await dependencies.createContext(browser, options.contextOptions);
+    page = options.page || await dependencies.createPage(context);
+    await dependencies.ensureLoggedIn(page, {
+      context,
+      loadSession: (_page, filePath) => dependencies.loadSession(context, filePath),
+      saveSession: (_page, filePath) => dependencies.saveSession(context, filePath),
+      sessionFilePath: options.sessionFilePath,
+    });
 
     const baseComponents = parseSearchUrl(searchUrl);
     if (selectedTimePeriod && TIME_PERIODS[selectedTimePeriod]) {
@@ -110,6 +122,13 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
         await page.close();
       } catch (error) {
         console.error('Erro ao fechar a página do scraper:', error);
+      }
+    }
+    if (context) {
+      try {
+        await context.close();
+      } catch (error) {
+        console.error('Erro ao fechar o contexto do scraper:', error);
       }
     }
     if (ownsDatabase) {

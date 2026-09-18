@@ -16,10 +16,21 @@ function createPage() {
   };
 }
 
+function createContext(page) {
+  return {
+    closeCalls: 0,
+    newPage: async () => page,
+    close: async function close() {
+      this.closeCalls += 1;
+    },
+  };
+}
+
 test('runScraper fecha apenas a pagina que criou quando o scraping falha', async () => {
   const page = createPage();
+  const context = createContext(page);
   const browser = {
-    newPage: async () => page,
+    newContext: async () => context,
   };
 
   await assert.rejects(
@@ -33,6 +44,48 @@ test('runScraper fecha apenas a pagina que criou quando o scraping falha', async
   );
 
   assert.equal(page.closeCalls, 1);
+  assert.equal(context.closeCalls, 1);
+});
+
+test('runScraper fecha o contexto quando a pagina nao pode ser criada', async () => {
+  const context = {
+    closeCalls: 0,
+    newPage: async () => {
+      throw new Error('falha ao criar pagina');
+    },
+    close: async function close() {
+      this.closeCalls += 1;
+    },
+  };
+
+  await assert.rejects(
+    require('../scraper').runScraper('php', 'Brasil', {
+      startBrowser: async () => ({ newContext: async () => context }),
+    }),
+    /falha ao criar pagina/
+  );
+
+  assert.equal(context.closeCalls, 1);
+});
+
+test('falha ao fechar contexto nao mascara falha principal', async () => {
+  const page = createPage();
+  const context = {
+    newPage: async () => page,
+    close: async () => {
+      throw new Error('falha ao fechar contexto');
+    },
+  };
+
+  await assert.rejects(
+    require('../scraper').runScraper('php', 'Brasil', {
+      startBrowser: async () => ({ newContext: async () => context }),
+      ensureLoggedIn: async () => {
+        throw new Error('falha principal');
+      },
+    }),
+    /falha principal/
+  );
 });
 
 test('main fecha o browser ao terminar a execucao CLI', async () => {
