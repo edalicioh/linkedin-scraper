@@ -91,8 +91,17 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
       console.log('Nenhuma vaga nova foi extraída.');
     }
 
- } catch (error) {
+    return {
+      counts: {
+        results: totalResultsCount,
+        links: allJobLinks.length,
+        jobs: jobs.length,
+      },
+    };
+
+  } catch (error) {
     console.error('Ocorreu um erro no processo principal do scraper:', error);
+    throw error;
   } finally {
     // 7. Fechar o navegador
     //await closeBrowser();
