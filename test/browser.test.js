@@ -20,15 +20,17 @@ test('compartilha um launch entre inicializacoes concorrentes', async () => {
   const browser = createFakeBrowser();
   let resolveLaunch;
   let launchCalls = 0;
-  const puppeteer = {
-    launch: () => {
+  let receivedOptions;
+  const playwright = {
+    launch: (options) => {
       launchCalls += 1;
+      receivedOptions = options;
       return new Promise((resolve) => {
         resolveLaunch = () => resolve(browser);
       });
     },
   };
-  const manager = createBrowserManager(puppeteer);
+  const manager = createBrowserManager(playwright);
 
   const first = manager.startBrowser();
   const second = manager.startBrowser({ headless: true });
@@ -38,12 +40,13 @@ test('compartilha um launch entre inicializacoes concorrentes', async () => {
   assert.equal(await first, browser);
   assert.equal(await second, browser);
   assert.equal(launchCalls, 1);
+  assert.deepEqual(receivedOptions, { headless: false });
 });
 
 test('limpa falha de launch e permite nova tentativa', async () => {
   const browser = createFakeBrowser();
   let launchCalls = 0;
-  const puppeteer = {
+  const playwright = {
     launch: async () => {
       launchCalls += 1;
       if (launchCalls === 1) {
@@ -52,7 +55,7 @@ test('limpa falha de launch e permite nova tentativa', async () => {
       return browser;
     },
   };
-  const manager = createBrowserManager(puppeteer);
+  const manager = createBrowserManager(playwright);
 
   await assert.rejects(manager.startBrowser(), /falha simulada/);
   assert.equal(await manager.startBrowser(), browser);
@@ -63,13 +66,13 @@ test('nao reutiliza browser desconectado e limpa a referencia no evento', async 
   const firstBrowser = createFakeBrowser();
   const secondBrowser = createFakeBrowser();
   let launchCalls = 0;
-  const puppeteer = {
+  const playwright = {
     launch: async () => {
       launchCalls += 1;
       return launchCalls === 1 ? firstBrowser : secondBrowser;
     },
   };
-  const manager = createBrowserManager(puppeteer);
+  const manager = createBrowserManager(playwright);
 
   assert.equal(await manager.startBrowser(), firstBrowser);
   firstBrowser.connected = false;

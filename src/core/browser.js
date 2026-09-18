@@ -1,21 +1,21 @@
-const puppeteer = require('puppeteer');
+const { chromium } = require('playwright');
 
 /**
  * Cria um gerenciador de ciclo de vida do browser.
  * A fábrica permite testar o ciclo sem iniciar um Chromium real.
  *
- * @param {object} [puppeteerClient=puppeteer] Cliente com o método launch.
+ * @param {object} [playwrightClient=chromium] Cliente com o método launch.
  * @returns {{startBrowser: Function, closeBrowser: Function}}
  */
-function createBrowserManager(puppeteerClient = puppeteer) {
+function createBrowserManager(playwrightClient = chromium) {
   let browserInstance = null;
   let browserLaunchPromise = null;
   let browserClosePromise = null;
 
   /**
    * Inicia uma instância conectada, compartilhando launches concorrentes.
-   * @param {object} options - Opções de inicialização do Puppeteer.
-   * @returns {Promise<import('puppeteer').Browser>} A instância do navegador.
+   * @param {object} options - Opções de inicialização do Playwright.
+   * @returns {Promise<import('playwright').Browser>} A instância do navegador.
    */
   async function startBrowser(options = {}) {
     if (browserClosePromise) {
@@ -35,10 +35,10 @@ function createBrowserManager(puppeteerClient = puppeteer) {
 
     console.log('Iniciando o navegador...');
     const launchOptions = { headless: false, ...options };
-    browserLaunchPromise = puppeteerClient.launch(launchOptions)
+    browserLaunchPromise = playwrightClient.launch(launchOptions)
       .then((browser) => {
         if (!browser || typeof browser.isConnected !== 'function' || !browser.isConnected()) {
-          throw new Error('O Puppeteer retornou um browser desconectado.');
+           throw new Error('O Playwright retornou um browser desconectado.');
         }
 
         browserInstance = browser;
