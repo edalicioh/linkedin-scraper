@@ -54,7 +54,7 @@ test('deduplica vagas existentes e repetidas na execução e retorna resumo', ()
       },
       scrapeJobDetails: async (_page, url) => {
         details.push(url);
-        return { title: url };
+        return { title: url, url };
       },
     },
   });
