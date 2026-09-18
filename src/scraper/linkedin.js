@@ -343,10 +343,13 @@ async function captureExternalUrl(page, options = {}) {
  */
 async function ensureLoggedIn(page, options = {}) {
   const { linkedinEmail, linkedinPassword } = require('../core/config');
+  const loadSessionFn = options.loadSession || loadSession;
+  const saveSessionFn = options.saveSession || saveSession;
+  const credentials = options.credentials || {};
   const screenshotOptions = { prefix: 'linkedin-login-failure', ...options.screenshot };
 
   try {
-    const isSessionLoaded = await loadSession(page);
+    const isSessionLoaded = await loadSessionFn(page, options.sessionFilePath);
     if (isSessionLoaded) {
       console.log('Verificando validade da sessão carregada...');
       await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
@@ -384,8 +387,18 @@ async function ensureLoggedIn(page, options = {}) {
       'form input[placeholder*="password" i]',
       'form input[placeholder*="senha" i]',
     ]);
-    await typeWithDelay(page, usernameSelector, linkedinEmail, options.typing);
-    await typeWithDelay(page, passwordSelector, linkedinPassword, options.typing);
+    await typeWithDelay(
+      page,
+      usernameSelector,
+      credentials.linkedinEmail ?? linkedinEmail,
+      options.typing
+    );
+    await typeWithDelay(
+      page,
+      passwordSelector,
+      credentials.linkedinPassword ?? linkedinPassword,
+      options.typing
+    );
     const submitSelector = await findFirstSelector(page, [
       'button[type="submit"]',
       '.login__form_action_container button',
@@ -397,7 +410,7 @@ async function ensureLoggedIn(page, options = {}) {
     console.log('Aguardando confirmação de login...');
     await page.waitForSelector('#global-nav', { timeout: 30000 });
     console.log('Login bem-sucedido!');
-    await saveSession(page);
+    await saveSessionFn(page, options.sessionFilePath);
   } catch (error) {
     const challenge = error instanceof AuthenticationChallengeError
       ? error
