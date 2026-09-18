@@ -1,4 +1,12 @@
 node_modules/
 .env
+.env.*
+!.env.example
 vagas.json
+storage/vagas.json
+src/storage/vagas.json
 cookies.json
+storage/cookies.json
+src/storage/cookies.json
+login-error.png
+npm-debug.log*
