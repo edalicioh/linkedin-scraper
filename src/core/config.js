@@ -26,6 +26,7 @@ function parseConfig(env = process.env) {
     jobsPerPage: parsePositiveInteger(env.JOBS_PER_PAGE, 25, 'JOBS_PER_PAGE'),
     scrapeLimit: parsePositiveInteger(env.SCRAPE_LIMIT, 5, 'SCRAPE_LIMIT'),
     timePeriod: env.TIME_PERIOD || 'any',
+    headless: env.HEADLESS === 'true',
     storageDir: STORAGE_DIR,
     jobsFilePath: JOBS_FILE_PATH,
     cookiesFilePath: COOKIES_FILE_PATH,
