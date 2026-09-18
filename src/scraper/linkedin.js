@@ -370,13 +370,19 @@ async function ensureLoggedIn(page, options = {}) {
       'input[autocomplete="username"]',
       '#username',
       'input[type="email"]',
+      'input[type="text"]',
+      'form input:not([type="hidden"]):not([type="password"])',
+      'input:not([type="hidden"]):not([type="password"])',
       'input[aria-label*="email" i]',
+      'input[placeholder*="email" i]',
     ]);
     const passwordSelector = await findFirstSelector(page, [
       'input[name="session_password"]',
       'input[autocomplete="current-password"]',
       '#password',
       'input[type="password"]',
+      'form input[placeholder*="password" i]',
+      'form input[placeholder*="senha" i]',
     ]);
     await typeWithDelay(page, usernameSelector, linkedinEmail, options.typing);
     await typeWithDelay(page, passwordSelector, linkedinPassword, options.typing);
