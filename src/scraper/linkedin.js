@@ -145,6 +145,28 @@ async function typeWithDelay(page, selector, value, options = {}) {
   return page.type(selector, value, { delay });
 }
 
+async function findFirstSelector(page, selectors, timeout = 10000) {
+  const deadline = Date.now() + timeout;
+  let lastError;
+
+  for (const selector of selectors) {
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) break;
+
+    try {
+      await page.waitForSelector(selector, {
+        visible: true,
+        timeout: Math.min(1500, remaining),
+      });
+      return selector;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error(`Nenhum seletor encontrado: ${selectors.join(', ')}`);
+}
+
 async function getVisibleJobLinks(page) {
   if (typeof page.evaluate !== 'function') return [];
 
@@ -343,9 +365,27 @@ async function ensureLoggedIn(page, options = {}) {
     await assertNoAuthenticationChallenge(page);
 
     console.log('Preenchendo credenciais...');
-    await typeWithDelay(page, '#username', linkedinEmail, options.typing);
-    await typeWithDelay(page, '#password', linkedinPassword, options.typing);
-    await page.click('.login__form_action_container button');
+    const usernameSelector = await findFirstSelector(page, [
+      'input[name="session_key"]',
+      'input[autocomplete="username"]',
+      '#username',
+      'input[type="email"]',
+      'input[aria-label*="email" i]',
+    ]);
+    const passwordSelector = await findFirstSelector(page, [
+      'input[name="session_password"]',
+      'input[autocomplete="current-password"]',
+      '#password',
+      'input[type="password"]',
+    ]);
+    await typeWithDelay(page, usernameSelector, linkedinEmail, options.typing);
+    await typeWithDelay(page, passwordSelector, linkedinPassword, options.typing);
+    const submitSelector = await findFirstSelector(page, [
+      'button[type="submit"]',
+      '.login__form_action_container button',
+      'button[data-id*="sign-in" i]',
+    ]);
+    await page.click(submitSelector);
     await assertNoAuthenticationChallenge(page);
 
     console.log('Aguardando confirmação de login...');
@@ -439,6 +479,7 @@ module.exports = {
   collectVisibleJobLinks: getVisibleJobLinks,
   detectAuthenticationChallenge,
   ensureLoggedIn,
+  findFirstSelector,
   getExternalUrl: captureExternalUrl,
   normalizeResultsCount,
   saveFailureScreenshot,
