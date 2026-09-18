@@ -1,7 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 
-const DEFAULT_FILE_PATH = path.join(__dirname, '..', 'storage', 'vagas.json');
+const DEFAULT_FILE_PATH = path.join(__dirname, '..', '..', 'storage', 'vagas.json');
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 25;
 
