@@ -26,7 +26,7 @@ test('compartilha um launch entre inicializacoes concorrentes', async () => {
       return new Promise((resolve) => {
         resolveLaunch = () => resolve(browser);
       });
-    }
+    },
   };
   const manager = createBrowserManager(puppeteer);
 
@@ -50,7 +50,7 @@ test('limpa falha de launch e permite nova tentativa', async () => {
         throw new Error('falha simulada');
       }
       return browser;
-    }
+    },
   };
   const manager = createBrowserManager(puppeteer);
 
@@ -67,7 +67,7 @@ test('nao reutiliza browser desconectado e limpa a referencia no evento', async 
     launch: async () => {
       launchCalls += 1;
       return launchCalls === 1 ? firstBrowser : secondBrowser;
-    }
+    },
   };
   const manager = createBrowserManager(puppeteer);
 
@@ -94,9 +94,10 @@ test('closeBrowser aguarda launch pendente antes de fechar', async () => {
   const browser = createFakeBrowser();
   let resolveLaunch;
   const manager = createBrowserManager({
-    launch: () => new Promise((resolve) => {
-      resolveLaunch = () => resolve(browser);
-    })
+    launch: () =>
+      new Promise((resolve) => {
+        resolveLaunch = () => resolve(browser);
+      }),
   });
 
   const start = manager.startBrowser();

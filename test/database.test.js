@@ -10,7 +10,7 @@ function temporaryDatabase() {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'linkedin-sqlite-'));
   return {
     directory,
-    file: path.join(directory, 'jobs.db')
+    file: path.join(directory, 'jobs.db'),
   };
 }
 
@@ -26,11 +26,24 @@ test('creates the schema and SQLite settings in an empty database', (t) => {
   assert.equal(db.pragma('busy_timeout', { simple: true }), 5000);
 
   const columns = db.prepare('PRAGMA table_info(jobs)').all();
-  assert.deepEqual(columns.map((column) => column.name), [
-    'job_id', 'title', 'company', 'query_location', 'job_location',
-    'description', 'application_type', 'application_type_raw', 'url',
-    'external_url', 'first_seen_at', 'last_seen_at', 'extracted_at'
-  ]);
+  assert.deepEqual(
+    columns.map((column) => column.name),
+    [
+      'job_id',
+      'title',
+      'company',
+      'query_location',
+      'job_location',
+      'description',
+      'application_type',
+      'application_type_raw',
+      'url',
+      'external_url',
+      'first_seen_at',
+      'last_seen_at',
+      'extracted_at',
+    ]
+  );
 });
 
 test('migration re-execution is idempotent', (t) => {
@@ -40,6 +53,11 @@ test('migration re-execution is idempotent', (t) => {
   t.after(() => fs.rmSync(temporary.directory, { recursive: true, force: true }));
 
   assert.equal(applyMigrations(db), 1);
-  assert.equal(db.prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'jobs'").get().count, 1);
+  assert.equal(
+    db
+      .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'jobs'")
+      .get().count,
+    1
+  );
   assert.equal(db.pragma('user_version', { simple: true }), 1);
 });

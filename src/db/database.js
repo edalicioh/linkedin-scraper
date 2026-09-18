@@ -20,5 +20,5 @@ function createDatabase(dbPath = DEFAULT_DB_PATH) {
 
 module.exports = {
   DEFAULT_DB_PATH,
-  createDatabase
+  createDatabase,
 };

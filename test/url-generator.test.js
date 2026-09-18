@@ -8,7 +8,8 @@ const {
 } = require('../src/services/url-generator');
 
 test('preserva location no round-trip da URL de busca', () => {
-  const original = 'https://www.linkedin.com/jobs/search/?keywords=node.js&location=S%C3%A3o%20Paulo&f_TPR=r604800&origin=JOB_SEARCH_PAGE&start=25';
+  const original =
+    'https://www.linkedin.com/jobs/search/?keywords=node.js&location=S%C3%A3o%20Paulo&f_TPR=r604800&origin=JOB_SEARCH_PAGE&start=25';
   const parsed = parseSearchUrl(original);
   const generated = new URL(generateSearchUrl(parsed));
 
@@ -21,12 +22,16 @@ test('preserva location no round-trip da URL de busca', () => {
 });
 
 test('todas as páginas mantêm keywords, location e período', () => {
-  const urls = generatePaginationUrls({
-    baseUrl: 'https://www.linkedin.com/jobs/search/',
-    keywords: 'backend',
-    location: 'Brasil',
-    timePeriod: 'r86400',
-  }, 2, 25);
+  const urls = generatePaginationUrls(
+    {
+      baseUrl: 'https://www.linkedin.com/jobs/search/',
+      keywords: 'backend',
+      location: 'Brasil',
+      timePeriod: 'r86400',
+    },
+    2,
+    25
+  );
 
   assert.equal(urls.length, 2);
   for (const [index, value] of urls.entries()) {

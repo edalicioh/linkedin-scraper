@@ -15,26 +15,28 @@ async function withTempDirectory(callback) {
   }
 }
 
-test('cria storage e grava JSON por substituição atômica', () => withTempDirectory(async (directory) => {
-  const storageDir = path.join(directory, 'nested', 'storage');
-  await saveAsJson('vagas.json', [{ jobId: '1' }], { storageDir });
+test('cria storage e grava JSON por substituição atômica', () =>
+  withTempDirectory(async (directory) => {
+    const storageDir = path.join(directory, 'nested', 'storage');
+    await saveAsJson('vagas.json', [{ jobId: '1' }], { storageDir });
 
-  const filePath = path.join(storageDir, 'vagas.json');
-  assert.deepEqual(JSON.parse(await fs.readFile(filePath, 'utf8')), [{ jobId: '1' }]);
-  assert.deepEqual(await readJsonArray('vagas.json', { storageDir }), [{ jobId: '1' }]);
-  assert.deepEqual(await readJsonArray('missing.json', { storageDir }), []);
-  assert.deepEqual(await fs.readdir(storageDir), ['vagas.json']);
-}));
+    const filePath = path.join(storageDir, 'vagas.json');
+    assert.deepEqual(JSON.parse(await fs.readFile(filePath, 'utf8')), [{ jobId: '1' }]);
+    assert.deepEqual(await readJsonArray('vagas.json', { storageDir }), [{ jobId: '1' }]);
+    assert.deepEqual(await readJsonArray('missing.json', { storageDir }), []);
+    assert.deepEqual(await fs.readdir(storageDir), ['vagas.json']);
+  }));
 
-test('append propaga JSON corrompido e não sobrescreve o arquivo', () => withTempDirectory(async (directory) => {
-  const storageDir = path.join(directory, 'storage');
-  await fs.mkdir(storageDir, { recursive: true });
-  const filePath = path.join(storageDir, 'vagas.json');
-  await fs.writeFile(filePath, '{corrompido', 'utf8');
+test('append propaga JSON corrompido e não sobrescreve o arquivo', () =>
+  withTempDirectory(async (directory) => {
+    const storageDir = path.join(directory, 'storage');
+    await fs.mkdir(storageDir, { recursive: true });
+    const filePath = path.join(storageDir, 'vagas.json');
+    await fs.writeFile(filePath, '{corrompido', 'utf8');
 
-  await assert.rejects(
-    appendAsJson('vagas.json', [{ jobId: '2' }], { storageDir }),
-    /JSON inválido/,
-  );
-  assert.equal(await fs.readFile(filePath, 'utf8'), '{corrompido');
-}));
+    await assert.rejects(
+      appendAsJson('vagas.json', [{ jobId: '2' }], { storageDir }),
+      /JSON inválido/
+    );
+    assert.equal(await fs.readFile(filePath, 'utf8'), '{corrompido');
+  }));

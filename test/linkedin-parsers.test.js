@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
   normalizeResultsCount,
   parseApplicationType,
-  normalizeApplicationType
+  normalizeApplicationType,
 } = require('../src/scraper/linkedin-parsers');
 
 test('normalizes localized result counts', () => {
@@ -16,10 +16,13 @@ test('normalizes localized result counts', () => {
 
 test('normalizes application types while preserving raw text', () => {
   assert.equal(normalizeApplicationType('Easy Apply'), 'Easy Apply');
-  assert.equal(normalizeApplicationType('Candidatar-se no site da empresa'), 'Apply on company website');
+  assert.equal(
+    normalizeApplicationType('Candidatar-se no site da empresa'),
+    'Apply on company website'
+  );
   assert.deepEqual(parseApplicationType('Candidatar-se no site da empresa'), {
     raw: 'Candidatar-se no site da empresa',
-    normalized: 'Apply on company website'
+    normalized: 'Apply on company website',
   });
   assert.deepEqual(parseApplicationType(null), { raw: null, normalized: null });
 });

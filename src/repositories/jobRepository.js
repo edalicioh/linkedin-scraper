@@ -43,7 +43,7 @@ function normalizeJob(job) {
     externalUrl: nullIfMissing(job.externalUrl ?? job.external_url),
     firstSeenAt: timestamp(job.firstSeenAt ?? job.first_seen_at ?? extractedAt),
     lastSeenAt: timestamp(job.lastSeenAt ?? job.last_seen_at ?? extractedAt),
-    extractedAt
+    extractedAt,
   };
 }
 
@@ -65,7 +65,7 @@ function toPublicJob(row) {
     externalUrl: row.external_url,
     extractionDate: row.extracted_at,
     firstSeenAt: row.first_seen_at,
-    lastSeenAt: row.last_seen_at
+    lastSeenAt: row.last_seen_at,
   };
 }
 
@@ -76,7 +76,9 @@ class JobRepository {
     }
 
     this.db = db;
-    this.findIdsStatement = db.prepare('SELECT job_id FROM jobs WHERE job_id IN (SELECT value FROM json_each(?))');
+    this.findIdsStatement = db.prepare(
+      'SELECT job_id FROM jobs WHERE job_id IN (SELECT value FROM json_each(?))'
+    );
     this.upsertStatement = db.prepare(`
       INSERT INTO jobs (
         job_id, title, company, query_location, job_location, description,
@@ -138,31 +140,40 @@ class JobRepository {
     const params = {};
 
     if (search) {
-      conditions.push('(LOWER(COALESCE(title, \'\')) LIKE @search OR LOWER(COALESCE(company, \'\')) LIKE @search)');
+      conditions.push(
+        "(LOWER(COALESCE(title, '')) LIKE @search OR LOWER(COALESCE(company, '')) LIKE @search)"
+      );
       params.search = `%${String(search).toLowerCase()}%`;
     }
     if (type) {
-      conditions.push('LOWER(COALESCE(application_type, \'\')) = LOWER(@type)');
+      conditions.push("LOWER(COALESCE(application_type, '')) = LOWER(@type)");
       params.type = type;
     }
     if (company) {
-      conditions.push('LOWER(COALESCE(company, \'\')) LIKE @company');
+      conditions.push("LOWER(COALESCE(company, '')) LIKE @company");
       params.company = `%${String(company).toLowerCase()}%`;
     }
     if (location) {
-      conditions.push('(LOWER(COALESCE(job_location, \'\')) LIKE @location OR LOWER(COALESCE(query_location, \'\')) LIKE @location)');
+      conditions.push(
+        "(LOWER(COALESCE(job_location, '')) LIKE @location OR LOWER(COALESCE(query_location, '')) LIKE @location)"
+      );
       params.location = `%${String(location).toLowerCase()}%`;
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const total = this.db.prepare(`SELECT COUNT(*) AS count FROM jobs ${where}`).get(params).count;
     const offset = (page - 1) * limit;
-    const items = this.db.prepare(`
+    const items = this.db
+      .prepare(
+        `
       SELECT * FROM jobs
       ${where}
       ORDER BY extracted_at IS NULL ASC, extracted_at DESC, job_id ASC
       LIMIT @limit OFFSET @offset
-    `).all({ ...params, limit, offset }).map(toPublicJob);
+    `
+      )
+      .all({ ...params, limit, offset })
+      .map(toPublicJob);
 
     return { items, total };
   }
@@ -176,5 +187,5 @@ module.exports = {
   JobRepository,
   createJobRepository,
   normalizeJob,
-  toPublicJob
+  toPublicJob,
 };

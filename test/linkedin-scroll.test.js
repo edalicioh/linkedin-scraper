@@ -9,20 +9,20 @@ const {
   collectJobLinks,
   detectAuthenticationChallenge,
   saveFailureScreenshot,
-  typeWithDelay
+  typeWithDelay,
 } = require('../src/scraper/linkedin');
 
 test('accumulates cards removed by a virtualized list', async () => {
   const visible = [
     [
       { jobId: '1', url: 'https://www.linkedin.com/jobs/view/1' },
-      { jobId: '2', url: 'https://www.linkedin.com/jobs/view/2' }
+      { jobId: '2', url: 'https://www.linkedin.com/jobs/view/2' },
     ],
     [
       { jobId: '2', url: 'https://www.linkedin.com/jobs/view/2' },
-      { jobId: '3', url: 'https://www.linkedin.com/jobs/view/3' }
+      { jobId: '3', url: 'https://www.linkedin.com/jobs/view/3' },
     ],
-    [{ jobId: '3', url: 'https://www.linkedin.com/jobs/view/3' }]
+    [{ jobId: '3', url: 'https://www.linkedin.com/jobs/view/3' }],
   ];
   let evaluateCalls = 0;
   let scrolls = 0;
@@ -32,14 +32,14 @@ test('accumulates cards removed by a virtualized list', async () => {
       if (evaluateCalls % 2 === 1) return visible[Math.min(scrolls, visible.length - 1)];
       scrolls += 1;
       return scrolls < visible.length;
-    }
+    },
   };
 
   const links = await collectJobLinks(page, { waitMs: 0, timeoutMs: 1000, maxIterations: 10 });
   assert.deepEqual(links, [
     { jobId: '1', url: 'https://www.linkedin.com/jobs/view/1' },
     { jobId: '2', url: 'https://www.linkedin.com/jobs/view/2' },
-    { jobId: '3', url: 'https://www.linkedin.com/jobs/view/3' }
+    { jobId: '3', url: 'https://www.linkedin.com/jobs/view/3' },
   ]);
 });
 
@@ -48,14 +48,14 @@ test('typing delay uses the injected random function', async () => {
   const page = {
     async type(selector, value, options) {
       received = { selector, value, options };
-    }
+    },
   };
 
   await typeWithDelay(page, '#username', 'user', { min: 10, max: 20, random: () => 0.5 });
   assert.deepEqual(received, {
     selector: '#username',
     value: 'user',
-    options: { delay: 15 }
+    options: { delay: 15 },
   });
 });
 
@@ -64,7 +64,7 @@ test('detects authentication challenges from URL and keeps a unique screenshot',
     url: () => 'https://www.linkedin.com/checkpoint/challenge',
     async screenshot({ path: screenshotPath }) {
       await fs.writeFile(screenshotPath, 'fixture');
-    }
+    },
   };
   const challenge = await detectAuthenticationChallenge(page);
   assert.equal(challenge.challenge, 'checkpoint');

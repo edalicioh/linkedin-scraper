@@ -12,7 +12,7 @@ function startTestServer(controller) {
   app.use('/api', createJobRoutes(controller));
   const server = http.createServer(app);
 
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     server.listen(0, '127.0.0.1', () => {
       const { port } = server.address();
       resolve({ server, baseUrl: `http://127.0.0.1:${port}` });
@@ -20,12 +20,13 @@ function startTestServer(controller) {
   });
 }
 
-test('POST returns a task id immediately and GET exposes its status', async t => {
+test('POST returns a task id immediately and GET exposes its status', async (t) => {
   let release;
   const controller = createJobController({
-    runner: () => new Promise(resolve => {
-      release = resolve;
-    }),
+    runner: () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
   });
   const { server, baseUrl } = await startTestServer(controller);
   t.after(() => server.close());
@@ -57,22 +58,24 @@ test('POST returns a task id immediately and GET exposes its status', async t =>
   assert.equal(completed.status, 'COMPLETED');
 });
 
-test('returns 429 for a full queue and 404 for an unknown task', async t => {
+test('returns 429 for a full queue and 404 for an unknown task', async (t) => {
   let release;
   const controller = createJobController({
     maxBacklog: 1,
-    runner: () => new Promise(resolve => {
-      release = resolve;
-    }),
+    runner: () =>
+      new Promise((resolve) => {
+        release = resolve;
+      }),
   });
   const { server, baseUrl } = await startTestServer(controller);
   t.after(() => server.close());
 
-  const request = () => fetch(`${baseUrl}/api/scrape`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ keywords: 'node', location: 'Brasil' }),
-  });
+  const request = () =>
+    fetch(`${baseUrl}/api/scrape`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ keywords: 'node', location: 'Brasil' }),
+    });
 
   const first = await request();
   const second = await request();

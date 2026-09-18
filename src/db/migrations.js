@@ -17,8 +17,8 @@ const MIGRATIONS = [
         last_seen_at TEXT NOT NULL,
         extracted_at TEXT NOT NULL
       );
-    `
-  }
+    `,
+  },
 ];
 
 function applyMigrations(db) {
@@ -46,5 +46,5 @@ function applyMigrations(db) {
 
 module.exports = {
   MIGRATIONS,
-  applyMigrations
+  applyMigrations,
 };

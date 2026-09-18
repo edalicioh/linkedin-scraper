@@ -16,7 +16,7 @@ function record(jobId, overrides = {}) {
     type: 'Easy Apply',
     url: `https://www.linkedin.com/jobs/view/${jobId}`,
     extractionDate: '2026-01-01T00:00:00.000Z',
-    ...overrides
+    ...overrides,
   };
 }
 

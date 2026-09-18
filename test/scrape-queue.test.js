@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const { MemoryTaskStore } = require('../src/services/memoryTaskStore');
 const { QueueFullError, ScrapeQueue } = require('../src/services/scrapeQueue');
 
-const tick = () => new Promise(resolve => setImmediate(resolve));
+const tick = () => new Promise((resolve) => setImmediate(resolve));
 
 test('runs tasks FIFO with only one runner active', async () => {
   const store = new MemoryTaskStore();
@@ -16,11 +16,11 @@ test('runs tasks FIFO with only one runner active', async () => {
   const queue = new ScrapeQueue({
     store,
     maxBacklog: 10,
-    runner: async input => {
+    runner: async (input) => {
       started.push(input.keywords);
       active += 1;
       maxActive = Math.max(maxActive, active);
-      await new Promise(resolve => releases.push(resolve));
+      await new Promise((resolve) => releases.push(resolve));
       active -= 1;
     },
   });
@@ -41,7 +41,10 @@ test('runs tasks FIFO with only one runner active', async () => {
   }
   await idle;
 
-  assert.deepEqual(started, Array.from({ length: 10 }, (_, index) => `job-${index}`));
+  assert.deepEqual(
+    started,
+    Array.from({ length: 10 }, (_, index) => `job-${index}`)
+  );
   assert.equal(maxActive, 1);
   assert.equal(queue.size(), 0);
 });
@@ -82,7 +85,7 @@ test('rejects work when the backlog is full without creating a task', async () =
     runner: () => {
       calls += 1;
       if (calls === 1) {
-        return new Promise(resolve => {
+        return new Promise((resolve) => {
           release = resolve;
         });
       }
@@ -94,7 +97,7 @@ test('rejects work when the backlog is full without creating a task', async () =
   queue.enqueue({ keywords: 'second', location: 'Brasil' });
   assert.throws(
     () => queue.enqueue({ keywords: 'third', location: 'Brasil' }),
-    error => error instanceof QueueFullError && error.code === 'QUEUE_FULL',
+    (error) => error instanceof QueueFullError && error.code === 'QUEUE_FULL'
   );
   assert.equal(queue.store.size(), 2);
 

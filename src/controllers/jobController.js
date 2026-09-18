@@ -31,13 +31,15 @@ function createJobController({
   jobQueryProvider,
 } = {}) {
   const taskStore = store || (queue && queue.store) || new MemoryTaskStore();
-  const scrapeQueue = queue || new ScrapeQueue({
-    runner: runner || defaultRunner,
-    store: taskStore,
-    maxBacklog,
-  });
+  const scrapeQueue =
+    queue ||
+    new ScrapeQueue({
+      runner: runner || defaultRunner,
+      store: taskStore,
+      maxBacklog,
+    });
   const queryJobs = createJobQueryService(
-    jobQueryProvider || provider || createSqliteJobQueryProvider(),
+    jobQueryProvider || provider || createSqliteJobQueryProvider()
   );
 
   async function startScraping(req, res) {
@@ -45,7 +47,9 @@ function createJobController({
     try {
       input = normalizeInput(req.body);
     } catch (error) {
-      return res.status(400).json({ error: 'Parâmetros "keywords" e "location" são obrigatórios.' });
+      return res
+        .status(400)
+        .json({ error: 'Parâmetros "keywords" e "location" são obrigatórios.' });
     }
 
     try {

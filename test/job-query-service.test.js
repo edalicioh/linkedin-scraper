@@ -25,14 +25,16 @@ test('parses defaults, trims filters, and delegates normalized values', async ()
 
   const result = await service({ search: ' engineer ', company: ' Acme ' });
 
-  assert.deepEqual(received, [{
-    page: DEFAULT_PAGE,
-    limit: DEFAULT_LIMIT,
-    search: 'engineer',
-    type: undefined,
-    company: 'Acme',
-    location: undefined,
-  }]);
+  assert.deepEqual(received, [
+    {
+      page: DEFAULT_PAGE,
+      limit: DEFAULT_LIMIT,
+      search: 'engineer',
+      type: undefined,
+      company: 'Acme',
+      location: undefined,
+    },
+  ]);
   assert.deepEqual(result, {
     items: [{ jobId: '1' }],
     page: DEFAULT_PAGE,
@@ -114,8 +116,14 @@ test('filters combined JSON jobs and sorts deterministically before pagination',
       location: 'SAO',
     });
 
-    assert.deepEqual(firstPage.items.map(job => job.jobId), ['3', '10']);
-    assert.deepEqual(secondPage.items.map(job => job.jobId), ['2']);
+    assert.deepEqual(
+      firstPage.items.map((job) => job.jobId),
+      ['3', '10']
+    );
+    assert.deepEqual(
+      secondPage.items.map((job) => job.jobId),
+      ['2']
+    );
     assert.equal(firstPage.total, 3);
     assert.equal(secondPage.total, 3);
   } finally {
@@ -124,9 +132,11 @@ test('filters combined JSON jobs and sorts deterministically before pagination',
 });
 
 test('returns an empty page for a missing JSON source', async () => {
-  const service = createJobQueryService(createJsonJobQueryProvider({
-    filePath: path.join(os.tmpdir(), 'jobs-file-that-does-not-exist.json'),
-  }));
+  const service = createJobQueryService(
+    createJsonJobQueryProvider({
+      filePath: path.join(os.tmpdir(), 'jobs-file-that-does-not-exist.json'),
+    })
+  );
 
   assert.deepEqual(await service({}), {
     items: [],

@@ -12,22 +12,25 @@ function createPage() {
     closeCalls: 0,
     close: async function close() {
       this.closeCalls += 1;
-    }
+    },
   };
 }
 
 test('runScraper fecha apenas a pagina que criou quando o scraping falha', async () => {
   const page = createPage();
   const browser = {
-    newPage: async () => page
+    newPage: async () => page,
   };
 
-  await assert.rejects(require('../scraper').runScraper('php', 'Brasil', {
-    startBrowser: async () => browser,
-    ensureLoggedIn: async () => {
-      throw new Error('falha de scraping');
-    }
-  }), /falha de scraping/);
+  await assert.rejects(
+    require('../scraper').runScraper('php', 'Brasil', {
+      startBrowser: async () => browser,
+      ensureLoggedIn: async () => {
+        throw new Error('falha de scraping');
+      },
+    }),
+    /falha de scraping/
+  );
 
   assert.equal(page.closeCalls, 1);
 });
@@ -38,7 +41,7 @@ test('main fecha o browser ao terminar a execucao CLI', async () => {
     runScraper: async () => {},
     closeBrowser: async () => {
       closeCalls += 1;
-    }
+    },
   });
 
   assert.equal(closeCalls, 1);
@@ -47,14 +50,17 @@ test('main fecha o browser ao terminar a execucao CLI', async () => {
 test('shutdown da API fecha o browser uma vez e nao por tarefa', async () => {
   let closeCalls = 0;
   let serverCloseCalls = 0;
-  const shutdown = createShutdown({
-    close(callback) {
-      serverCloseCalls += 1;
-      callback();
+  const shutdown = createShutdown(
+    {
+      close(callback) {
+        serverCloseCalls += 1;
+        callback();
+      },
+    },
+    async () => {
+      closeCalls += 1;
     }
-  }, async () => {
-    closeCalls += 1;
-  });
+  );
 
   await Promise.all([shutdown(), shutdown()]);
   assert.equal(serverCloseCalls, 1);

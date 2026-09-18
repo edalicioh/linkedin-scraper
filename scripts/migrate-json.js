@@ -6,7 +6,7 @@ const { createJobRepository } = require('../src/repositories/jobRepository');
 const HISTORICAL_JSON_PATHS = [
   path.join('vagas.json'),
   path.join('storage', 'vagas.json'),
-  path.join('src', 'storage', 'vagas.json')
+  path.join('src', 'storage', 'vagas.json'),
 ];
 
 function backupSource(sourcePath) {
@@ -25,7 +25,7 @@ function migrateJson({ projectRoot = path.join(__dirname, '..'), dbPath = DEFAUL
     rejected: [],
     duplicates: 0,
     files: [],
-    backups: []
+    backups: [],
   };
 
   try {
@@ -88,5 +88,5 @@ if (require.main === module) {
 
 module.exports = {
   HISTORICAL_JSON_PATHS,
-  migrateJson
+  migrateJson,
 };

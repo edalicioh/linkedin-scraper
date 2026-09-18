@@ -6,14 +6,15 @@ const path = require('node:path');
 const config = require('../src/core/config');
 
 test('importar a configuração sem credenciais não encerra o processo', () => {
-  const output = execFileSync(process.execPath, [
-    '-e',
-    "require('./src/core/config'); process.stdout.write('import-ok')",
-  ], {
-    cwd: path.join(__dirname, '..'),
-    env: { ...process.env, LINKEDIN_EMAIL: '', LINKEDIN_PASSWORD: '' },
-    encoding: 'utf8',
-  });
+  const output = execFileSync(
+    process.execPath,
+    ['-e', "require('./src/core/config'); process.stdout.write('import-ok')"],
+    {
+      cwd: path.join(__dirname, '..'),
+      env: { ...process.env, LINKEDIN_EMAIL: '', LINKEDIN_PASSWORD: '' },
+      encoding: 'utf8',
+    }
+  );
 
   assert.equal(output, 'import-ok');
 });

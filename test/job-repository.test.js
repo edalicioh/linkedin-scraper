@@ -26,7 +26,7 @@ function job(overrides = {}) {
     url: 'https://www.linkedin.com/jobs/view/100',
     externalUrl: null,
     extractionDate: '2026-01-01T00:00:00.000Z',
-    ...overrides
+    ...overrides,
   };
 }
 
@@ -34,12 +34,14 @@ test('upsert preserves first_seen_at and updates mutable fields', (t) => {
   const repository = repositoryFixture(t);
 
   repository.upsert(job({ firstSeenAt: '2025-01-01T00:00:00.000Z' }));
-  const updated = repository.upsert(job({
-    title: 'Senior backend developer',
-    company: 'Updated Example',
-    description: 'Updated description',
-    extractionDate: '2026-02-01T00:00:00.000Z'
-  }));
+  const updated = repository.upsert(
+    job({
+      title: 'Senior backend developer',
+      company: 'Updated Example',
+      description: 'Updated description',
+      extractionDate: '2026-02-01T00:00:00.000Z',
+    })
+  );
 
   assert.equal(repository.listAll().length, 1);
   assert.equal(updated.title, 'Senior backend developer');
@@ -63,10 +65,10 @@ test('findExistingIds, getById and duplicate upserts use job_id identity', (t) =
 test('upsertMany rolls back the complete batch after a validation failure', (t) => {
   const repository = repositoryFixture(t);
 
-  assert.throws(() => repository.upsertMany([
-    job({ jobId: 'valid' }),
-    job({ jobId: 'invalid', url: null })
-  ]), /must have a url/);
+  assert.throws(
+    () => repository.upsertMany([job({ jobId: 'valid' }), job({ jobId: 'invalid', url: null })]),
+    /must have a url/
+  );
   assert.deepEqual(repository.listAll(), []);
 });
 

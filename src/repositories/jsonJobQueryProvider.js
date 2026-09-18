@@ -40,8 +40,13 @@ function matchesJob(job, filters) {
   const title = firstValue(job, ['title', 'titulo']);
   const company = firstValue(job, ['company', 'empresa']);
   const type = firstValue(job, ['type', 'applicationType', 'application_type']);
-  const locations = ['location', 'jobLocation', 'job_location', 'queryLocation', 'query_location']
-    .map(field => job[field]);
+  const locations = [
+    'location',
+    'jobLocation',
+    'job_location',
+    'queryLocation',
+    'query_location',
+  ].map((field) => job[field]);
 
   if (filters.search && !includesFilter(`${text(title)} ${text(company)}`, filters.search)) {
     return false;
@@ -55,7 +60,10 @@ function matchesJob(job, filters) {
     return false;
   }
 
-  if (filters.location && !locations.some(location => includesFilter(location, filters.location))) {
+  if (
+    filters.location &&
+    !locations.some((location) => includesFilter(location, filters.location))
+  ) {
     return false;
   }
 
@@ -90,7 +98,7 @@ function sortJobs(jobs) {
       if (left.id > right.id) return 1;
       return left.index - right.index;
     })
-    .map(entry => entry.job);
+    .map((entry) => entry.job);
 }
 
 async function readJobs(filePath, readFile) {
@@ -114,21 +122,29 @@ async function readJobs(filePath, readFile) {
     if (!Array.isArray(jobs)) {
       throw new Error('Jobs JSON must be an array.');
     }
-    return jobs.filter(job => job && typeof job === 'object' && !Array.isArray(job));
+    return jobs.filter((job) => job && typeof job === 'object' && !Array.isArray(job));
   } catch (error) {
     throw new JobQueryReadError();
   }
 }
 
 function createJsonJobQueryProvider(options = {}) {
-  const { filePath = DEFAULT_FILE_PATH, readFile = fs.readFile } = typeof options === 'string'
-    ? { filePath: options }
-    : options;
+  const { filePath = DEFAULT_FILE_PATH, readFile = fs.readFile } =
+    typeof options === 'string' ? { filePath: options } : options;
 
   return {
-    async queryJobs({ page = DEFAULT_PAGE, limit = DEFAULT_LIMIT, search, type, company, location } = {}) {
+    async queryJobs({
+      page = DEFAULT_PAGE,
+      limit = DEFAULT_LIMIT,
+      search,
+      type,
+      company,
+      location,
+    } = {}) {
       const jobs = await readJobs(filePath, readFile);
-      const filteredJobs = sortJobs(jobs.filter(job => matchesJob(job, { search, type, company, location })));
+      const filteredJobs = sortJobs(
+        jobs.filter((job) => matchesJob(job, { search, type, company, location }))
+      );
       const offset = (page - 1) * limit;
 
       return {
