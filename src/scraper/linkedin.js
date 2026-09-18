@@ -247,47 +247,29 @@ async function collectJobLinks(page, options = {}) {
   return [...jobsById.values()];
 }
 
-function matchesTargetOpener(target, sourceTarget) {
-  if (!target || typeof target.opener !== 'function') return false;
-  const opener = target.opener();
-  return opener === sourceTarget;
-}
-
-function addExternalTargetListener(page, onPage) {
-  const browser = typeof page.browser === 'function' ? page.browser() : null;
-  const sourceTarget = typeof page.target === 'function' ? page.target() : null;
-  if (!browser || typeof browser.on !== 'function' || !sourceTarget) return () => {};
-
-  const handler = async target => {
-    if (!matchesTargetOpener(target, sourceTarget)) return;
-    try {
-      const popup = await target.page();
-      if (popup) onPage(popup);
-    } catch (_error) {
-      // The target can close before Puppeteer creates its Page object.
-    }
-  };
-  browser.on('targetcreated', handler);
-  return () => {
-    if (typeof browser.off === 'function') browser.off('targetcreated', handler);
-    else if (typeof browser.removeListener === 'function') browser.removeListener('targetcreated', handler);
-  };
-}
-
 async function waitForModal(page, timeoutMs, wait) {
   const deadline = Date.now() + timeoutMs;
   let iterations = 0;
   while (Date.now() < deadline && iterations < 20) {
     iterations += 1;
-    if (typeof page.$ === 'function' && await page.$('.artdeco-modal')) return true;
-    await wait(Math.min(50, deadline - Date.now()));
+    if (typeof page.locator === 'function') {
+      try {
+        await page.locator('.artdeco-modal').first().waitFor({ state: 'visible', timeout: 50 });
+        return true;
+      } catch (_error) {
+        // Continue polling until the modal timeout.
+      }
+    } else if (typeof page.$ === 'function' && await page.$('.artdeco-modal')) {
+      return true;
+    }
+    await wait(Math.max(0, Math.min(50, deadline - Date.now())));
   }
   return false;
 }
 
 /**
  * Clicks an external application action and captures only a popup opened by
- * the supplied page. The listener is installed before the click and every
+ * the supplied page. The popup waiter is installed before the click and every
  * page created by this helper is closed in finally.
  */
 async function captureExternalUrl(page, options = {}) {
@@ -296,21 +278,18 @@ async function captureExternalUrl(page, options = {}) {
   const originalUrl = getPageUrl(page);
   const popups = new Set();
   let popup;
-  let removeTargetListener = () => {};
-  let popupHandler;
+  let popupPromise;
 
   try {
-    removeTargetListener = addExternalTargetListener(page, candidate => {
-      popups.add(candidate);
-      popup ||= candidate;
-    });
-
-    if (typeof page.once === 'function') {
-      popupHandler = candidate => {
-        popups.add(candidate);
-        popup ||= candidate;
-      };
-      page.once('popup', popupHandler);
+    if (typeof page.waitForEvent === 'function') {
+      popupPromise = page
+        .waitForEvent('popup', { timeout: timeoutMs })
+        .then(candidate => {
+          popup = candidate;
+          popups.add(candidate);
+          return candidate;
+        })
+        .catch(() => null);
     }
 
     await page.click('.jobs-apply-button--top-card');
@@ -330,7 +309,7 @@ async function captureExternalUrl(page, options = {}) {
 
       const currentUrl = getPageUrl(page);
       if (currentUrl !== originalUrl && isExternalUrl(currentUrl)) return currentUrl;
-      await wait(Math.min(50, deadline - Date.now()));
+      await wait(Math.max(0, Math.min(50, deadline - Date.now())));
     }
 
     return null;
@@ -338,8 +317,6 @@ async function captureExternalUrl(page, options = {}) {
     console.error('Erro ao tentar obter URL externa:', error.message);
     return null;
   } finally {
-    removeTargetListener();
-    if (popupHandler && typeof page.removeListener === 'function') page.removeListener('popup', popupHandler);
     for (const candidate of popups) {
       try {
         if (typeof candidate.isClosed !== 'function' || !candidate.isClosed()) await candidate.close();
