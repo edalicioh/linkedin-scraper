@@ -13,11 +13,25 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
   const searchFixture = await fs.readFile(SEARCH_FIXTURE, 'utf8');
   const server = createLocalServer((request, response) => {
     response.setHeader('content-type', 'text/html; charset=utf-8');
-    if (request.url === '/search') {
-      response.end(searchFixture);
-      return;
-    }
-    response.end(`
+      if (request.url === '/search') {
+        response.end(searchFixture);
+        return;
+      }
+      if (request.url === '/jobs/view/modern') {
+        response.end(`
+          <!doctype html>
+          <html><body>
+            <h1 class="job-details-jobs-unified-top-card__job-title">Engenheiro PHP</h1>
+            <div class="job-details-jobs-unified-top-card__company-name">Empresa Moderna</div>
+            <section class="jobs-description__content"><div>Descricao moderna</div></section>
+            <button class="jobs-apply-button" aria-label="Candidatar-se">
+              <span class="artdeco-button__text">Candidatura simplificada</span>
+            </button>
+          </body></html>
+        `);
+        return;
+      }
+      response.end(`
       <!doctype html>
       <html><body>
         <h1 class="t-24 job-details-jobs-unified-top-card__job-title">Engenheiro Node</h1>
@@ -63,6 +77,25 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
         description: 'Descricao local',
         type: 'Easy Apply',
         externalUrl: null,
+      }
+    );
+
+    const modernDetails = await scrapeJobDetails(
+      page,
+      assertLocalUrl(`${baseUrl}/jobs/view/modern`).toString()
+    );
+    assert.deepEqual(
+      {
+        title: modernDetails.title,
+        company: modernDetails.company,
+        description: modernDetails.description,
+        type: modernDetails.type,
+      },
+      {
+        title: 'Engenheiro PHP',
+        company: 'Empresa Moderna',
+        description: 'Descricao moderna',
+        type: 'Easy Apply',
       }
     );
   } finally {

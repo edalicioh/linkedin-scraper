@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+node_modules
+npm-debug.log*
+storage/*
+test
+*.md
+*.png
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*

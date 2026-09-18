@@ -35,7 +35,50 @@ npm run start:api
 A execucao direta usa `php` e `Brasil` como valores padrao. A API escuta em
 `http://localhost:3000` por padrao e aceita outra porta via `PORT`.
 
+## Docker
+
+Configure `LINKEDIN_EMAIL` e `LINKEDIN_PASSWORD` no arquivo `.env` e suba a API:
+
+```bash
+docker compose up --build -d
+```
+
+A API fica disponivel em `http://localhost:3000`. O diretorio `storage/` e montado
+como volume para preservar o banco SQLite, cookies e screenshots entre reinicios.
+
+Para executar o scraper direto e encerrar o container ao terminar:
+
+```bash
+docker compose run --rm app npm start
+```
+
+Para acompanhar os logs ou parar a API:
+
+```bash
+docker compose logs -f app
+docker compose down
+```
+
+O container executa o Chromium em modo headless. A imagem usa a mesma versao do
+Playwright declarada em `package.json`.
+
+O Compose tambem inicia um scheduler que enfileira uma extracao no inicio de
+cada hora entre 06:00 e 18:00, inclusive, no fuso `America/Sao_Paulo`:
+
+```text
+06:00, 07:00, 08:00, ..., 18:00
+```
+
+Configure `SCRAPE_KEYWORDS`, `SCRAPE_LOCATION`, `SCRAPE_CRON` e `CRON_TIMEZONE`
+no `.env` para alterar os valores. O scheduler pode ser acompanhado com:
+
+```bash
+docker compose logs -f scheduler
+```
+
 ## API
+
+Consulte a documentacao completa em [`docs/API.md`](docs/API.md).
 
 `GET /` retorna o estado da API.
 

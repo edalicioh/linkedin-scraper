@@ -1,0 +1,50 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      HEADLESS: 'true'
+      PORT: 3000
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./storage:/app/storage
+    init: true
+    ipc: host
+    restart: unless-stopped
+    stop_grace_period: 15s
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch('http://127.0.0.1:3000/')
+          .then(response => { if (!response.ok) process.exit(1); })
+          .catch(() => process.exit(1));
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: production
+      SCRAPER_API_URL: http://app:3000/api/scrape
+      SCRAPE_KEYWORDS: ${SCRAPE_KEYWORDS:-php}
+      SCRAPE_LOCATION: ${SCRAPE_LOCATION:-Brasil}
+      SCRAPE_CRON: ${SCRAPE_CRON:-0 6-18 * * *}
+      CRON_TIMEZONE: ${CRON_TIMEZONE:-America/Sao_Paulo}
+    command: ['node', 'scheduler.js']
+    depends_on:
+      app:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped

@@ -16,6 +16,33 @@ const DEFAULT_SCROLL_OPTIONS = {
   step: 700,
   waitMs: 100
 };
+const JOB_DETAIL_SELECTORS = {
+  title: [
+    '.job-details-jobs-unified-top-card__job-title',
+    '[class*="job-details-jobs-unified-top-card__job-title"]',
+    'h1[class*="job-title" i]',
+    'h1'
+  ],
+  company: [
+    'div.job-details-jobs-unified-top-card__company-name a',
+    '.job-details-jobs-unified-top-card__company-name',
+    '[class*="job-details"][class*="company-name"] a',
+    'a[href*="/company/"]'
+  ],
+  description: [
+    '#job-details .mt4',
+    '#job-details',
+    '.jobs-description__content',
+    '.jobs-box__html-content',
+    '[class*="jobs-description"]'
+  ],
+  applyButton: [
+    '.jobs-apply-button--top-card',
+    'button.jobs-apply-button',
+    'button[aria-label*="apply" i]',
+    'button[aria-label*="candidatar" i]'
+  ]
+};
 
 class AuthenticationChallengeError extends Error {
   constructor(challenge, url) {
@@ -45,6 +72,10 @@ function getPageUrl(page) {
   } catch (_error) {
     return '';
   }
+}
+
+function isAuthenticatedPage(page) {
+  return /linkedin\.com\/(?:feed|in|jobs)(?:[/?#]|$)/i.test(getPageUrl(page));
 }
 
 function isExternalUrl(value) {
@@ -136,7 +167,12 @@ function randomDelay(min, max, random) {
 
 async function waitForVisibleSelector(page, selector, timeout = 10000) {
   if (typeof page.locator === 'function') {
-    const locator = page.locator(selector).first();
+    const baseLocator = page.locator(selector);
+    // LinkedIn can keep duplicate hidden inputs in the DOM. Select the first
+    // visible match instead of waiting on the first DOM match indefinitely.
+    const locator = typeof baseLocator.all === 'function'
+      ? page.locator(`${selector}:visible`).first()
+      : baseLocator.first();
     await locator.waitFor({ state: 'visible', timeout });
     return locator;
   }
@@ -178,6 +214,46 @@ async function findFirstSelector(page, selectors, timeout = 10000) {
   }
 
   throw lastError || new Error(`Nenhum seletor encontrado: ${selectors.join(', ')}`);
+}
+
+async function findLoginSubmit(page, timeout = 10000) {
+  const deadline = Date.now() + timeout;
+
+  if (typeof page.getByRole === 'function') {
+    for (const name of ['Entrar', 'Sign in']) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) break;
+
+      try {
+        const locator = page.getByRole('button', { name, exact: true }).first();
+        await locator.waitFor({ state: 'visible', timeout: Math.min(1500, remaining) });
+        return locator;
+      } catch (_error) {
+        // Continue with the next accessible name or CSS fallback.
+      }
+    }
+  }
+
+  return findFirstSelector(page, [
+    'button[type="submit"]',
+    'button:has-text("Entrar"):not(:has-text("Microsoft")):not(:has-text("Apple"))',
+    'button:has-text("Sign in")',
+    'button[aria-label*="entrar" i]',
+    'button[aria-label*="sign in" i]',
+    'form:has(input[type="password"]) button:last-of-type',
+    '.login__form_action_container button',
+    'button[data-id*="sign-in" i]',
+  ], Math.max(1, deadline - Date.now()));
+}
+
+async function waitForAuthenticatedPage(page, timeout = 30000) {
+  return findFirstSelector(page, [
+    '#global-nav',
+    'input[placeholder*="Pesquisar" i]',
+    'input[placeholder*="Search" i]',
+    '[role="navigation"]',
+    'header nav',
+  ], timeout);
 }
 
 async function getVisibleJobLinks(page) {
@@ -345,7 +421,7 @@ async function ensureLoggedIn(page, options = {}) {
       await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
       await assertNoAuthenticationChallenge(page);
       try {
-      await waitForVisibleSelector(page, '#global-nav', 10000);
+        await waitForAuthenticatedPage(page, 10000);
         console.log('Sessão válida carregada. Pulando login.');
         return;
       } catch (_error) {
@@ -389,20 +465,22 @@ async function ensureLoggedIn(page, options = {}) {
       credentials.linkedinPassword ?? linkedinPassword,
       options.typing
     );
-    const submitSelector = await findFirstSelector(page, [
-      'button[type="submit"]',
-      '.login__form_action_container button',
-      'button[data-id*="sign-in" i]',
-    ]);
+    let submitSelector;
+    try {
+      submitSelector = await findLoginSubmit(page);
+    } catch (error) {
+      if (!isAuthenticatedPage(page)) throw error;
+      console.log('Login concluído durante a localização do botão de envio.');
+    }
     if (submitSelector && typeof submitSelector.click === 'function') {
       await submitSelector.click();
-    } else {
+    } else if (submitSelector) {
       await page.click(submitSelector);
     }
     await assertNoAuthenticationChallenge(page);
 
     console.log('Aguardando confirmação de login...');
-    await waitForVisibleSelector(page, '#global-nav', 30000);
+    await waitForAuthenticatedPage(page, 30000);
     console.log('Login bem-sucedido!');
     await saveSessionFn(page, options.sessionFilePath);
   } catch (error) {
@@ -455,15 +533,20 @@ async function scrapeJobDetails(page, jobUrl, options = {}) {
   await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
   await assertNoAuthenticationChallenge(page);
 
-  await waitForVisibleSelector(page, '.t-24.job-details-jobs-unified-top-card__job-title', 10000)
+  await findFirstSelector(page, JOB_DETAIL_SELECTORS.title, 10000)
     .catch(() => console.log('Aviso: Elemento de título não encontrado dentro do timeout.'));
 
-  const jobData = await page.evaluate(() => {
-    const title = document.querySelector('.t-24.job-details-jobs-unified-top-card__job-title');
-    const company = document.querySelector('div.job-details-jobs-unified-top-card__company-name a');
-    const description = document.querySelector('#job-details .mt4');
-    const button = document.querySelector('.jobs-apply-button--top-card');
-    const rawType = button?.querySelector('.artdeco-button__text')?.innerText?.trim() || null;
+  const jobData = await page.evaluate((selectors) => {
+    const findElement = (candidates) => candidates
+      .map(selector => document.querySelector(selector))
+      .find(Boolean);
+    const title = findElement(selectors.title);
+    const company = findElement(selectors.company);
+    const description = findElement(selectors.description);
+    const button = findElement(selectors.applyButton);
+    const rawType = button?.querySelector('.artdeco-button__text')?.innerText?.trim()
+      || button?.innerText?.trim()
+      || null;
     return {
       title: title?.innerText?.trim() || 'N/A',
       company: company?.innerText?.trim() || 'N/A',
@@ -471,7 +554,7 @@ async function scrapeJobDetails(page, jobUrl, options = {}) {
       url: window.location.href,
       typeRaw: rawType
     };
-  });
+  }, JOB_DETAIL_SELECTORS);
 
   const application = parseApplicationType(jobData.typeRaw);
   jobData.type = application.normalized || 'N/A';

@@ -8,7 +8,7 @@ const { ensureLoggedIn } = require('../src/scraper/linkedin');
 
 const LOGIN_FIXTURE = path.join(__dirname, 'fixtures', 'linkedin', 'login.html');
 
-function createLoginPage({ sessionExpired = false } = {}) {
+function createLoginPage({ sessionExpired = false, accessibleSubmit = false, modernNavigation = false } = {}) {
   let currentUrl = 'about:blank';
   let loggedIn = false;
   const calls = {
@@ -34,6 +34,7 @@ function createLoginPage({ sessionExpired = false } = {}) {
         waitFor: async (options) => {
           calls.waits.push({ selector, options });
           if (selector === '#global-nav') {
+            if (modernNavigation) throw new Error('navegacao moderna');
             if (currentUrl.includes('/feed/') && sessionExpired) {
               throw new Error('sessao expirada');
             }
@@ -49,6 +50,14 @@ function createLoginPage({ sessionExpired = false } = {}) {
             if (loginSelectors.has(selector)) return;
           }
 
+          if (
+            modernNavigation
+            && selector === 'input[placeholder*="Pesquisar" i]'
+            && (loggedIn || currentUrl.includes('/feed/'))
+          ) {
+            return;
+          }
+
           throw new Error(`seletor ausente: ${selector}`);
         },
         pressSequentially: async (value, options) => {
@@ -62,6 +71,23 @@ function createLoginPage({ sessionExpired = false } = {}) {
       return locator;
     },
   };
+
+  if (accessibleSubmit) {
+    page.getByRole = (_role, { name }) => {
+      const selector = `role:${name}`;
+      const locator = {
+        first: () => locator,
+        waitFor: async (options) => {
+          calls.waits.push({ selector, options });
+        },
+        click: async () => {
+          calls.clicks.push(selector);
+          loggedIn = true;
+        },
+      };
+      return locator;
+    };
+  }
 
   return page;
 }
@@ -103,8 +129,36 @@ test('a fixture de login cobre campos e submit alternativos', async () => {
   assert.deepEqual(page.calls.goto, ['https://www.linkedin.com/login']);
 });
 
+test('usa o nome acessivel do botao de login em portugues', async () => {
+  const page = createLoginPage({ accessibleSubmit: true });
+
+  await ensureLoggedIn(
+    page,
+    loginOptions({
+      loadSession: async () => false,
+      saveSession: async () => {},
+    })
+  );
+
+  assert.deepEqual(page.calls.clicks, ['role:Entrar']);
+});
+
+test('confirma login com o marcador moderno do feed', async () => {
+  const page = createLoginPage({ modernNavigation: true });
+
+  await ensureLoggedIn(
+    page,
+    loginOptions({
+      loadSession: async () => false,
+      saveSession: async () => {},
+    })
+  );
+
+  assert.ok(page.calls.waits.some(({ selector }) => selector === 'input[placeholder*="Pesquisar" i]'));
+});
+
 test('pula login quando a sessao carregada esta valida', async () => {
-  const page = createLoginPage();
+  const page = createLoginPage({ modernNavigation: true });
   let saveCalls = 0;
 
   await ensureLoggedIn(
