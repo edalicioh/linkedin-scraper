@@ -1,12 +1,16 @@
 {
   "name": "linkedin-scraper",
   "version": "1.0.0",
-  "description": "Scraper de vagas do LinkedIn",
+  "description": "Scraper de vagas do LinkedIn com API HTTP opcional",
   "main": "scraper.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node scraper.js",
     "start:api": "node api.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "keywords": [
     "scraper",
@@ -15,11 +19,19 @@
   ],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.18.1"
+  },
   "dependencies": {
-    "cheerio": "^1.1.2",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "fs-extra": "^11.3.1",
     "puppeteer": "^21.11.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.35.0",
+    "eslint": "^9.35.0",
+    "globals": "^16.4.0",
+    "prettier": "^3.6.2"
   }
 }
