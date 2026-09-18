@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node scraper.js",
     "start:api": "node api.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test test/database.test.js test/job-repository.test.js test/json-migration.test.js"
   },
   "keywords": [
     "scraper",
@@ -17,6 +17,7 @@
   "license": "MIT",
   "dependencies": {
     "cheerio": "^1.1.2",
+    "better-sqlite3": "^12.11.1",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
     "fs-extra": "^11.3.1",

@@ -1,10 +1,9 @@
 const { startBrowser, closeBrowser } = require('./src/core/browser');
 const { ensureLoggedIn, scrapeJobLinks, scrapeJobDetails } = require('./src/scraper/linkedin');
-const { appendAsJson } = require('./src/services/file-saver');
 const { parseSearchUrl, generatePaginationUrls, TIME_PERIODS } = require('./src/services/url-generator');
 const { linkedinEmail, linkedinPassword, maxPages, jobsPerPage, timePeriod } = require('./src/core/config');
-const fse = require('fs-extra');
-const path = require('path');
+const { createDatabase } = require('./src/db/database');
+const { createJobRepository } = require('./src/repositories/jobRepository');
 
 /**
  * Função que orquestra o processo de scraping com base em keywords e location.
@@ -12,7 +11,9 @@ const path = require('path');
  * @param {string} location - Localização para a busca.
  */
 async function runScraper(keywords = 'php', location = 'Brasil') {
- console.log(`Iniciando o scraper de vagas do LinkedIn para "${keywords}" em "${location}"...`);
+  console.log(`Iniciando o scraper de vagas do LinkedIn para "${keywords}" em "${location}"...`);
+  const db = createDatabase();
+  const repository = createJobRepository(db);
 
   // Gerar URL de busca dinamicamente
   const encodedKeywords = encodeURIComponent(keywords);
@@ -52,19 +53,10 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
       }
     }
     
-    // 3. Criar um índice de jobId's já coletados
-    let existingJobIds = new Set();
-    try {
-      const vagasPath = path.join(__dirname, 'vagas.json');
-      const existingVagas = await fse.readJson(vagasPath);
-      if (Array.isArray(existingVagas)) {
-        existingJobIds = new Set(existingVagas.map(vaga => vaga.jobId).filter(id => id));
-        console.log(`Encontrados ${existingJobIds.size} jobId's já coletados.`);
-      }
-    } catch (err) {
-      console.log('Nenhum arquivo vagas.json encontrado ou arquivo corrompido. Iniciando do zero.');
-    }
-    
+    // 3. Criar um índice de jobId's já coletados no SQLite
+    const existingJobIds = repository.findExistingIds(allJobLinks.map((job) => job.jobId));
+    console.log(`Encontrados ${existingJobIds.size} jobId's já coletados.`);
+
     // 4. Filtrar vagas que já foram coletadas
     const filteredJobs = allJobLinks.filter(job => !existingJobIds.has(job.jobId));
     console.log(`Total de vagas encontradas: ${allJobLinks.length}. Vagas novas após filtragem: ${filteredJobs.length}`);
@@ -81,12 +73,14 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
       // Adiciona o jobId e a data de extração aos dados da vaga
       jobData.jobId = job.jobId;
       jobData.extractionDate = extractionDate;
+      jobData.queryLocation = location;
       jobs.push(jobData);
     }
 
-    // 6. Adicionar os dados ao banco de dados (vagas.json)
+    // 6. Adicionar os dados ao banco de dados
     if (jobs.length > 0) {
-      await appendAsJson('vagas.json', jobs);
+      repository.upsertMany(jobs);
+      console.log(`Dados salvos com sucesso. Total de vagas gravadas: ${jobs.length}`);
     } else {
       console.log('Nenhuma vaga nova foi extraída.');
     }
@@ -94,7 +88,8 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
  } catch (error) {
     console.error('Ocorreu um erro no processo principal do scraper:', error);
   } finally {
-    // 7. Fechar o navegador
+    db.close();
+    // 7. O navegador compartilhado permanece sob responsabilidade do ciclo atual.
     //await closeBrowser();
     console.log('Scraper finalizado.');
   }
