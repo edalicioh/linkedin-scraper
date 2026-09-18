@@ -132,6 +132,40 @@ class JobRepository {
   listAll() {
     return this.listAllStatement.all().map(toPublicJob);
   }
+
+  queryJobs({ page = 1, limit = 25, search, type, company, location } = {}) {
+    const conditions = [];
+    const params = {};
+
+    if (search) {
+      conditions.push('(LOWER(COALESCE(title, \'\')) LIKE @search OR LOWER(COALESCE(company, \'\')) LIKE @search)');
+      params.search = `%${String(search).toLowerCase()}%`;
+    }
+    if (type) {
+      conditions.push('LOWER(COALESCE(application_type, \'\')) = LOWER(@type)');
+      params.type = type;
+    }
+    if (company) {
+      conditions.push('LOWER(COALESCE(company, \'\')) LIKE @company');
+      params.company = `%${String(company).toLowerCase()}%`;
+    }
+    if (location) {
+      conditions.push('(LOWER(COALESCE(job_location, \'\')) LIKE @location OR LOWER(COALESCE(query_location, \'\')) LIKE @location)');
+      params.location = `%${String(location).toLowerCase()}%`;
+    }
+
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    const total = this.db.prepare(`SELECT COUNT(*) AS count FROM jobs ${where}`).get(params).count;
+    const offset = (page - 1) * limit;
+    const items = this.db.prepare(`
+      SELECT * FROM jobs
+      ${where}
+      ORDER BY extracted_at IS NULL ASC, extracted_at DESC, job_id ASC
+      LIMIT @limit OFFSET @offset
+    `).all({ ...params, limit, offset }).map(toPublicJob);
+
+    return { items, total };
+  }
 }
 
 function createJobRepository(db) {
