@@ -8,5 +8,6 @@ src/storage/vagas.json
 cookies.json
 storage/cookies.json
 src/storage/cookies.json
+storage/.*.tmp
 login-error.png
 npm-debug.log*

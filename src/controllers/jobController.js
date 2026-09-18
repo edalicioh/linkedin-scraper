@@ -1,5 +1,6 @@
 const fs = require('fs').promises;
-const path = require('path');
+const { JOBS_FILE_PATH } = require('../core/config');
+const { runScraper } = require('../../scraper'); // Importa a função refatorada
 
 /**
  * Controller para operações relacionadas a jobs.
@@ -19,10 +20,10 @@ async function startScraping(req, res) {
   }
 
   try {
-    const { runScraper } = require('../../scraper');
-
     // Inicia o scraping em background (não aguarda conclusão)
-    runScraper(keywords, location);
+    void runScraper(keywords, location).catch((error) => {
+      console.error('Erro durante o scraping em background:', error);
+    });
     res.status(202).json({ message: 'Processo de scraping iniciado.', keywords, location });
   } catch (error) {
     console.error('Erro ao iniciar o scraping:', error);
@@ -37,8 +38,7 @@ async function startScraping(req, res) {
  */
 async function getJobs(req, res) {
   try {
-    const vagasPath = path.join(__dirname, '../../storage/vagas.json');
-    const data = await fs.readFile(vagasPath, 'utf8');
+    const data = await fs.readFile(JOBS_FILE_PATH, 'utf8');
 
     // Se o arquivo estiver vazio, retorna um array vazio
     if (!data.trim()) {
