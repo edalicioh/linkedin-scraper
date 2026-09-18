@@ -1,20 +1,77 @@
 const express = require('express');
+const { closeBrowser } = require('./src/core/browser');
 const jobRoutes = require('./src/routes/jobRoutes');
-const app = express();
+
 const PORT = process.env.PORT || 3000;
 
-// Middleware para parsear JSON no body
-app.use(express.json());
+function createApp() {
+  const app = express();
 
-// Rota de teste
-app.get('/', (req, res) => {
+  app.use(express.json());
+  app.get('/', (req, res) => {
     res.json({ message: 'API do Scraper do LinkedIn está rodando!' });
-});
+  });
+  app.use('/api', jobRoutes);
 
-// Usar as rotas definidas em jobRoutes
-app.use('/api', jobRoutes);
+  return app;
+}
 
-// Inicia o servidor
-app.listen(PORT, () => {
-    console.log(`Servidor API rodando na porta ${PORT}`);
-});
+function closeServer(server) {
+  return new Promise((resolve, reject) => {
+    server.close((error) => {
+      if (error && error.code !== 'ERR_SERVER_NOT_RUNNING') {
+        reject(error);
+        return;
+      }
+      resolve();
+    });
+  });
+}
+
+function createShutdown(server, close = closeBrowser) {
+  let shutdownPromise;
+
+  return function shutdown() {
+    if (shutdownPromise) {
+      return shutdownPromise;
+    }
+
+    shutdownPromise = (async () => {
+      try {
+        await closeServer(server);
+      } finally {
+        await close();
+      }
+    })();
+
+    return shutdownPromise;
+  };
+}
+
+function startServer({
+  app = createApp(),
+  port = PORT,
+  close: closeBrowserFn = closeBrowser,
+  processRef = process
+} = {}) {
+  const server = app.listen(port, () => {
+    console.log(`Servidor API rodando na porta ${port}`);
+  });
+  const shutdown = createShutdown(server, closeBrowserFn);
+
+  processRef.once('SIGINT', shutdown);
+  processRef.once('SIGTERM', shutdown);
+
+  return { server, shutdown };
+}
+
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = {
+  closeServer,
+  createApp,
+  createShutdown,
+  startServer
+};

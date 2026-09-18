@@ -2,7 +2,7 @@ const { startBrowser, closeBrowser } = require('./src/core/browser');
 const { ensureLoggedIn, scrapeJobLinks, scrapeJobDetails } = require('./src/scraper/linkedin');
 const { appendAsJson } = require('./src/services/file-saver');
 const { parseSearchUrl, generatePaginationUrls, TIME_PERIODS } = require('./src/services/url-generator');
-const { linkedinEmail, linkedinPassword, maxPages, jobsPerPage, timePeriod } = require('./src/core/config');
+const { linkedinEmail, linkedinPassword, maxPages, jobsPerPage, timePeriod, headless } = require('./src/core/config');
 const fse = require('fs-extra');
 const path = require('path');
 
@@ -11,20 +11,30 @@ const path = require('path');
  * @param {string} keywords - Palavras-chave para a busca.
  * @param {string} location - Localização para a busca.
  */
-async function runScraper(keywords = 'php', location = 'Brasil') {
- console.log(`Iniciando o scraper de vagas do LinkedIn para "${keywords}" em "${location}"...`);
+async function runScraper(keywords = 'php', location = 'Brasil', dependencies = {}) {
+  console.log(`Iniciando o scraper de vagas do LinkedIn para "${keywords}" em "${location}"...`);
+
+  const {
+    startBrowser: start = startBrowser,
+    ensureLoggedIn: login = ensureLoggedIn,
+    scrapeJobLinks: getJobLinks = scrapeJobLinks,
+    scrapeJobDetails: getJobDetails = scrapeJobDetails,
+    appendAsJson: saveJobs = appendAsJson,
+    browserHeadless = headless
+  } = dependencies;
 
   // Gerar URL de busca dinamicamente
   const encodedKeywords = encodeURIComponent(keywords);
   const encodedLocation = encodeURIComponent(location);
   const SEARCH_URL = `https://www.linkedin.com/jobs/search/?keywords=${encodedKeywords}&location=${encodedLocation}`;
 
+  let page;
   try {
-    const browser = await startBrowser();
-    const page = await browser.newPage();
+    const browser = await start({ headless: browserHeadless });
+    page = await browser.newPage();
 
     // 1. Garantir que o usuário está logado (com sessão ou login manual)
-    await ensureLoggedIn(page);
+    await login(page);
 
     // 2. Gerar URLs de múltiplas páginas
     const baseComponents = parseSearchUrl(SEARCH_URL);
@@ -42,7 +52,7 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
     let totalResultsCount = null;
     for (const [index, url] of searchUrls.entries()) {
       console.log(`Processando página ${index + 1}/${searchUrls.length}: ${url}`);
-      const { jobLinks, resultsCount } = await scrapeJobLinks(page, url);
+      const { jobLinks, resultsCount } = await getJobLinks(page, url);
       allJobLinks = allJobLinks.concat(jobLinks);
       
       // Usa a contagem de resultados da primeira página
@@ -77,7 +87,7 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
     const jobs = [];
     const extractionDate = new Date().toISOString(); // Data e hora da extração
     for (const job of linksToScrape) {
-      const jobData = await scrapeJobDetails(page, job.url);
+      const jobData = await getJobDetails(page, job.url);
       // Adiciona o jobId e a data de extração aos dados da vaga
       jobData.jobId = job.jobId;
       jobData.extractionDate = extractionDate;
@@ -86,7 +96,7 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
 
     // 6. Adicionar os dados ao banco de dados (vagas.json)
     if (jobs.length > 0) {
-      await appendAsJson('vagas.json', jobs);
+      await saveJobs('vagas.json', jobs);
     } else {
       console.log('Nenhuma vaga nova foi extraída.');
     }
@@ -94,8 +104,13 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
  } catch (error) {
     console.error('Ocorreu um erro no processo principal do scraper:', error);
   } finally {
-    // 7. Fechar o navegador
-    //await closeBrowser();
+    if (page) {
+      try {
+        await page.close();
+      } catch (closeError) {
+        console.error('Erro ao fechar a página do scraper:', closeError);
+      }
+    }
     console.log('Scraper finalizado.');
   }
 }
@@ -103,18 +118,28 @@ async function runScraper(keywords = 'php', location = 'Brasil') {
 /**
  * Função principal para execução direta via CLI (mantém compatibilidade).
  */
-async function main() {
+async function main(dependencies = {}) {
   // Valores padrão podem ser obtidos do .env ou definidos aqui
   const defaultKeywords = 'php'; // Pode ser substituído por um valor do .env se desejado
   const defaultLocation = 'Brasil'; // Pode ser substituído por um valor do .env se desejado
 
- await runScraper(defaultKeywords, defaultLocation);
+  const run = dependencies.runScraper || runScraper;
+  const close = dependencies.closeBrowser || closeBrowser;
+
+  try {
+    await run(defaultKeywords, defaultLocation);
+  } finally {
+    await close();
+  }
 }
 
 // Exporta a função para uso em outros módulos (como a API)
-module.exports = { runScraper };
+module.exports = { runScraper, main };
 
 // Executa o scraper se este arquivo for chamado diretamente
 if (require.main === module) {
-  main();
+  main().catch((error) => {
+    console.error('Erro ao finalizar o scraper:', error);
+    process.exitCode = 1;
+  });
 }

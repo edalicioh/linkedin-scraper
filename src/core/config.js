@@ -7,7 +7,8 @@ const config = {
   linkedinPassword: process.env.LINKEDIN_PASSWORD,
   maxPages: parseInt(process.env.MAX_PAGES) || 3,
   jobsPerPage: parseInt(process.env.JOBS_PER_PAGE) || 25,
-  timePeriod: process.env.TIME_PERIOD || 'any'
+  timePeriod: process.env.TIME_PERIOD || 'any',
+  headless: process.env.HEADLESS === 'true'
 };
 
 // Validação para garantir que as credenciais foram carregadas
