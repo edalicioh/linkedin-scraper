@@ -1,6 +1,6 @@
 # LinkedIn Job Scraper
 
-Aplicacao Node.js que usa Puppeteer para consultar vagas do LinkedIn e expoe uma
+Aplicacao Node.js que usa Playwright com Chromium para consultar vagas do LinkedIn e expoe uma
 API HTTP opcional para enfileirar scrapes e consultar os resultados.
 
 Use este projeto somente com autorizacao. O LinkedIn pode bloquear automacao,
@@ -11,14 +11,15 @@ exigir CAPTCHA ou 2FA e alterar a estrutura das paginas.
 - Node.js `>=20.18.1`
 - npm
 - Credenciais de uma conta do LinkedIn para executar o scraper
-- Chromium compativel com a instalacao do Puppeteer
+- Chromium instalado pelo Playwright
 
-Os testes automatizados nao precisam de credenciais, navegador ou rede externa.
+Os testes automatizados nao precisam de credenciais nem de acesso ao LinkedIn. O smoke test usa somente um servidor local em `127.0.0.1`.
 
 ## Instalacao
 
 ```bash
 npm ci
+npx playwright install chromium
 ```
 
 Copie `.env.example` para `.env` e substitua os valores ficticios. O navegador
@@ -76,7 +77,7 @@ npm run format:check
 ```
 
 Os testes usam `node:test` e nao acessam o LinkedIn. O teste ao vivo exige
-credenciais reais, rede, Puppeteer e pode parar em CAPTCHA ou 2FA; os seletores
+credenciais reais, rede, Playwright e pode parar em CAPTCHA ou 2FA; os seletores
 dependem do DOM atual e nao sao declarados permanentemente validados.
 
 ## Estrutura

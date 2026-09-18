@@ -62,7 +62,7 @@ function isExternalUrl(value) {
 
 /**
  * Reads challenge signals without relying on a specific LinkedIn selector.
- * @param {import('puppeteer').Page} page
+ * @param {import('playwright').Page} page
  * @returns {Promise<{challenge: string, url: string}|null>}
  */
 async function detectAuthenticationChallenge(page) {
