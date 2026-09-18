@@ -446,7 +446,7 @@ async function scrapeJobLinks(page, searchUrl, options = {}) {
   await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
   await assertNoAuthenticationChallenge(page);
 
-  await page.waitForSelector('a.job-card-container__link', { timeout: options.selectorTimeoutMs ?? 10000 })
+  await waitForVisibleSelector(page, 'a.job-card-container__link', options.selectorTimeoutMs ?? 10000)
     .catch(() => console.log('Aviso: Elementos de vaga não foram encontrados dentro do timeout esperado.'));
 
   const resultsCount = await scrapeResultsCount(page);
@@ -457,7 +457,11 @@ async function scrapeJobLinks(page, searchUrl, options = {}) {
 
 async function scrapeResultsCount(page) {
   try {
-    await page.waitForSelector('.jobs-search-results-list__text .jobs-search-results-list__subtitle span', { timeout: 5000 });
+    await waitForVisibleSelector(
+      page,
+      '.jobs-search-results-list__text .jobs-search-results-list__subtitle span',
+      5000
+    );
     const countText = await page.evaluate(() => {
       const element = document.querySelector('.jobs-search-results-list__text .jobs-search-results-list__subtitle span');
       return element ? element.textContent.trim() : null;
@@ -474,7 +478,7 @@ async function scrapeJobDetails(page, jobUrl, options = {}) {
   await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
   await assertNoAuthenticationChallenge(page);
 
-  await page.waitForSelector('.t-24.job-details-jobs-unified-top-card__job-title', { timeout: 10000 })
+  await waitForVisibleSelector(page, '.t-24.job-details-jobs-unified-top-card__job-title', 10000)
     .catch(() => console.log('Aviso: Elemento de título não encontrado dentro do timeout.'));
 
   const jobData = await page.evaluate(() => {
