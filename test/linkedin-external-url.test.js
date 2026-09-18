@@ -1,17 +1,10 @@
-const test = require('node:test');
 const assert = require('node:assert/strict');
-const { EventEmitter } = require('node:events');
+const test = require('node:test');
+
 const { captureExternalUrl } = require('../src/scraper/linkedin');
 
-class FakeBrowser extends EventEmitter {}
-
-test('captures only a popup opened by the current page and closes it', async () => {
-  const browser = new FakeBrowser();
-  const sourceTarget = {};
-  const unrelatedTarget = {
-    opener: () => ({}),
-    page: async () => ({ url: () => 'https://unrelated.example/app' }),
-  };
+test('captura popup associado ao clique e o fecha', async () => {
+  let resolvePopup;
   let closed = false;
   const popup = {
     url: () => 'https://company.example/apply',
@@ -20,22 +13,24 @@ test('captures only a popup opened by the current page and closes it', async () 
       closed = true;
     },
   };
-  const currentTarget = {
-    opener: () => sourceTarget,
-    page: async () => popup,
-  };
   const page = {
-    target: () => sourceTarget,
-    browser: () => browser,
     url: () => 'https://www.linkedin.com/jobs/view/1',
+    waitForEvent: async (event) => {
+      assert.equal(event, 'popup');
+      return new Promise((resolve) => {
+        resolvePopup = () => resolve(popup);
+      });
+    },
     async click() {
-      browser.emit('targetcreated', unrelatedTarget);
-      browser.emit('targetcreated', currentTarget);
+      resolvePopup();
     },
-    async $(selector) {
-      assert.equal(selector, '.artdeco-modal');
-      return null;
-    },
+    locator: () => ({
+      first: () => ({
+        waitFor: async () => {
+          throw new Error('modal ausente');
+        },
+      }),
+    }),
   };
 
   assert.equal(
@@ -43,22 +38,30 @@ test('captures only a popup opened by the current page and closes it', async () 
     'https://company.example/apply'
   );
   assert.equal(closed, true);
-  assert.equal(browser.listenerCount('targetcreated'), 0);
 });
 
-test('returns null when no external URL is opened', async () => {
-  const browser = new FakeBrowser();
-  const sourceTarget = {};
+test('captura navegacao externa na mesma aba sem popup', async () => {
+  let currentUrl = 'https://www.linkedin.com/jobs/view/2';
   const page = {
-    target: () => sourceTarget,
-    browser: () => browser,
-    url: () => 'https://www.linkedin.com/jobs/view/2',
-    async click() {},
-    async $() {
-      return null;
+    url: () => currentUrl,
+    waitForEvent: async () => new Promise(() => {}),
+    async click() {
+      currentUrl = 'https://company.example/apply';
     },
   };
 
+  assert.equal(
+    await captureExternalUrl(page, { timeoutMs: 50, wait: async () => {} }),
+    'https://company.example/apply'
+  );
+});
+
+test('retorna null quando nenhuma URL externa e aberta', async () => {
+  const page = {
+    url: () => 'https://www.linkedin.com/jobs/view/3',
+    waitForEvent: async () => new Promise(() => {}),
+    async click() {},
+  };
+
   assert.equal(await captureExternalUrl(page, { timeoutMs: 5, wait: async () => {} }), null);
-  assert.equal(browser.listenerCount('targetcreated'), 0);
 });
