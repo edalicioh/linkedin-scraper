@@ -94,6 +94,15 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
       processed: jobs.length,
       saved: jobs.length,
       totalResults: totalResultsCount,
+      counts: {
+        results: totalResultsCount,
+        links: allJobLinks.length,
+        jobs: jobs.length,
+        found: allJobLinks.length,
+        ignored: allJobLinks.length - filteredJobs.length,
+        processed: jobs.length,
+        saved: jobs.length,
+      },
     };
   } finally {
     if (page) {
