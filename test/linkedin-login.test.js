@@ -15,6 +15,7 @@ function createLoginPage({ sessionExpired = false } = {}) {
     goto: [],
     types: [],
     clicks: [],
+    waits: [],
   };
 
   const page = {
@@ -27,27 +28,38 @@ function createLoginPage({ sessionExpired = false } = {}) {
       calls.goto.push(url);
     },
     evaluate: async () => ({ text: '', hasChallengeElement: false }),
-    waitForSelector: async (selector) => {
-      if (selector === '#global-nav') {
-        if (currentUrl.includes('/feed/') && sessionExpired) {
-          throw new Error('sessao expirada');
-        }
-        if (loggedIn || currentUrl.includes('/feed/')) return;
-      }
+    locator: (selector) => {
+      const locator = {
+        first: () => locator,
+        waitFor: async (options) => {
+          calls.waits.push({ selector, options });
+          if (selector === '#global-nav') {
+            if (currentUrl.includes('/feed/') && sessionExpired) {
+              throw new Error('sessao expirada');
+            }
+            if (loggedIn || currentUrl.includes('/feed/')) return;
+          }
 
-      if (currentUrl.includes('/login')) {
-        const loginSelectors = new Set(['#username', '#password', 'button[data-id*="sign-in" i]']);
-        if (loginSelectors.has(selector)) return;
-      }
+          if (currentUrl.includes('/login')) {
+            const loginSelectors = new Set([
+              '#username',
+              '#password',
+              'button[data-id*="sign-in" i]',
+            ]);
+            if (loginSelectors.has(selector)) return;
+          }
 
-      throw new Error(`seletor ausente: ${selector}`);
-    },
-    type: async (selector, value, options) => {
-      calls.types.push({ selector, value, options });
-    },
-    click: async (selector) => {
-      calls.clicks.push(selector);
-      loggedIn = true;
+          throw new Error(`seletor ausente: ${selector}`);
+        },
+        pressSequentially: async (value, options) => {
+          calls.types.push({ selector, value, options });
+        },
+        click: async () => {
+          calls.clicks.push(selector);
+          loggedIn = true;
+        },
+      };
+      return locator;
     },
   };
 
@@ -86,6 +98,7 @@ test('a fixture de login cobre campos e submit alternativos', async () => {
     { selector: '#password', value: 'fixture-password', options: { delay: 0 } },
   ]);
   assert.deepEqual(page.calls.clicks, ['button[data-id*="sign-in" i]']);
+  assert.ok(page.calls.waits.every(({ options }) => options.state === 'visible'));
   assert.equal(savedPages.length, 1);
   assert.deepEqual(page.calls.goto, ['https://www.linkedin.com/login']);
 });

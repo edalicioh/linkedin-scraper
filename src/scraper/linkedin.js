@@ -134,6 +134,17 @@ function randomDelay(min, max, random) {
   return Math.round(min + randomValue * (max - min));
 }
 
+async function waitForVisibleSelector(page, selector, timeout = 10000) {
+  if (typeof page.locator === 'function') {
+    const locator = page.locator(selector).first();
+    await locator.waitFor({ state: 'visible', timeout });
+    return locator;
+  }
+
+  await page.waitForSelector(selector, { visible: true, timeout });
+  return selector;
+}
+
 /**
  * Types credentials with a deterministic injectable delay in tests.
  */
@@ -142,6 +153,12 @@ async function typeWithDelay(page, selector, value, options = {}) {
   const max = options.max ?? options.maxDelay ?? 120;
   const random = options.random || Math.random;
   const delay = randomDelay(min, Math.max(min, max), random);
+  if (selector && typeof selector.pressSequentially === 'function') {
+    return selector.pressSequentially(value, { delay });
+  }
+  if (typeof page.locator === 'function') {
+    return page.locator(selector).first().pressSequentially(value, { delay });
+  }
   return page.type(selector, value, { delay });
 }
 
@@ -154,11 +171,7 @@ async function findFirstSelector(page, selectors, timeout = 10000) {
     if (remaining <= 0) break;
 
     try {
-      await page.waitForSelector(selector, {
-        visible: true,
-        timeout: Math.min(1500, remaining),
-      });
-      return selector;
+      return await waitForVisibleSelector(page, selector, Math.min(1500, remaining));
     } catch (error) {
       lastError = error;
     }
@@ -355,7 +368,7 @@ async function ensureLoggedIn(page, options = {}) {
       await page.goto('https://www.linkedin.com/feed/', { waitUntil: 'domcontentloaded' });
       await assertNoAuthenticationChallenge(page);
       try {
-        await page.waitForSelector('#global-nav', { timeout: 10000 });
+      await waitForVisibleSelector(page, '#global-nav', 10000);
         console.log('Sessão válida carregada. Pulando login.');
         return;
       } catch (_error) {
@@ -364,7 +377,7 @@ async function ensureLoggedIn(page, options = {}) {
     }
 
     console.log('Navegando para a página de login do LinkedIn...');
-    await page.goto('https://www.linkedin.com/login', { waitUntil: 'networkidle2' });
+    await page.goto('https://www.linkedin.com/login', { waitUntil: 'domcontentloaded' });
     await assertNoAuthenticationChallenge(page);
 
     console.log('Preenchendo credenciais...');
@@ -404,11 +417,15 @@ async function ensureLoggedIn(page, options = {}) {
       '.login__form_action_container button',
       'button[data-id*="sign-in" i]',
     ]);
-    await page.click(submitSelector);
+    if (submitSelector && typeof submitSelector.click === 'function') {
+      await submitSelector.click();
+    } else {
+      await page.click(submitSelector);
+    }
     await assertNoAuthenticationChallenge(page);
 
     console.log('Aguardando confirmação de login...');
-    await page.waitForSelector('#global-nav', { timeout: 30000 });
+    await waitForVisibleSelector(page, '#global-nav', 30000);
     console.log('Login bem-sucedido!');
     await saveSessionFn(page, options.sessionFilePath);
   } catch (error) {
