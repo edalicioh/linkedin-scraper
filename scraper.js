@@ -6,6 +6,15 @@ const config = require('./src/core/config');
 const { createDatabase } = require('./src/db/database');
 const { createJobRepository } = require('./src/repositories/jobRepository');
 
+function wait(milliseconds) {
+  return new Promise(resolve => setTimeout(resolve, milliseconds));
+}
+
+function nonNegativeNumber(value, fallback) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
 async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
   config.validateCredentials();
   const limit = config.validateScrapeLimit(options.limit);
@@ -19,6 +28,10 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
     ensureLoggedIn,
     scrapeJobLinks,
     scrapeJobDetails,
+    jobDelayMinMs: 2000,
+    jobDelayMaxMs: 5000,
+    jobDelayRandom: Math.random,
+    waitBetweenJobs: wait,
     ...overrides,
   };
   const database = options.database || createDatabase(options.dbPath);
@@ -68,13 +81,23 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
       }
     }
 
-    const existingJobIds = repository.findExistingIds(allJobLinks.map((job) => job && job.jobId));
+    const jobIds = allJobLinks.map((job) => job && job.jobId);
+    const existingJobIds = repository.findExistingIds(jobIds);
+    const incompleteJobIds = typeof repository.findIncompleteIds === 'function'
+      ? repository.findIncompleteIds(jobIds)
+      : new Set();
     console.log(`Encontrados ${existingJobIds.size} jobId's já coletados.`);
 
     const filteredJobs = allJobLinks.filter((job) => {
-      if (!job || !job.jobId || existingJobIds.has(job.jobId)) {
+      if (!job || !job.jobId) {
         return false;
       }
+
+      if (existingJobIds.has(job.jobId)) {
+        if (!incompleteJobIds.has(job.jobId)) return false;
+        incompleteJobIds.delete(job.jobId);
+      }
+
       existingJobIds.add(job.jobId);
       return true;
     });
@@ -85,7 +108,19 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
 
     const jobs = [];
     const extractionDate = new Date().toISOString();
-    for (const job of linksToScrape) {
+    const minimumDelay = nonNegativeNumber(dependencies.jobDelayMinMs, 2000);
+    const maximumDelay = Math.max(
+      minimumDelay,
+      nonNegativeNumber(dependencies.jobDelayMaxMs, 5000)
+    );
+    for (const [index, job] of linksToScrape.entries()) {
+      if (index > 0) {
+        const randomValue = Math.min(1, Math.max(0, Number(dependencies.jobDelayRandom())));
+        const delay = Math.round(minimumDelay + randomValue * (maximumDelay - minimumDelay));
+        console.log(`Aguardando ${delay}ms antes da próxima vaga...`);
+        await dependencies.waitBetweenJobs(delay);
+      }
+
       const jobData = await dependencies.scrapeJobDetails(page, job.url);
       jobData.jobId = job.jobId;
       jobData.extractionDate = extractionDate;

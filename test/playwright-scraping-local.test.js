@@ -23,10 +23,46 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
           <html><body>
             <h1 class="job-details-jobs-unified-top-card__job-title">Engenheiro PHP</h1>
             <div class="job-details-jobs-unified-top-card__company-name">Empresa Moderna</div>
-            <section class="jobs-description__content"><div>Descricao moderna</div></section>
+            <div id="job-details"></div>
+            <div class="jobs-description-content__text"><div>Descricao moderna</div></div>
             <button class="jobs-apply-button" aria-label="Candidatar-se">
               <span class="artdeco-button__text">Candidatura simplificada</span>
             </button>
+          </body></html>
+        `);
+        return;
+      }
+      if (request.url === '/jobs/view/current') {
+        response.end(`
+          <!doctype html>
+          <html><body>
+            <h1></h1>
+            <h1 class="top-card-layout__title topcard__title">Engenheiro Front-end</h1>
+            <a class="topcard__org-name-link" href="/company/atual">Empresa Atual</a>
+            <div class="description__text"><div id="current-description"></div></div>
+            <script>
+              setTimeout(() => {
+                const description = document.querySelector('#current-description');
+                description.className = 'show-more-less-html__markup';
+                description.textContent = 'Descricao carregada depois';
+              }, 200);
+            </script>
+          </body></html>
+        `);
+        return;
+      }
+      if (request.url === '/jobs/view/sdui') {
+        response.end(`
+          <!doctype html>
+          <html><head><title>Engenheiro SDUI | Empresa SDUI | LinkedIn</title></head><body>
+            <div id="JobDetails_AboutTheJob_3001">
+              <h2>Sobre a vaga</h2>
+              <span data-testid="expandable-text-box">
+                <p>Primeiro paragrafo.</p>
+                <p>Segundo paragrafo.</p>
+                <button data-testid="expandable-text-button">... mais</button>
+              </span>
+            </div>
           </body></html>
         `);
         return;
@@ -96,6 +132,40 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
         company: 'Empresa Moderna',
         description: 'Descricao moderna',
         type: 'Easy Apply',
+      }
+    );
+
+    const currentDetails = await scrapeJobDetails(
+      page,
+      assertLocalUrl(`${baseUrl}/jobs/view/current`).toString()
+    );
+    assert.deepEqual(
+      {
+        title: currentDetails.title,
+        company: currentDetails.company,
+        description: currentDetails.description,
+      },
+      {
+        title: 'Engenheiro Front-end',
+        company: 'Empresa Atual',
+        description: 'Descricao carregada depois',
+      }
+    );
+
+    const sduiDetails = await scrapeJobDetails(
+      page,
+      assertLocalUrl(`${baseUrl}/jobs/view/sdui`).toString()
+    );
+    assert.deepEqual(
+      {
+        title: sduiDetails.title,
+        company: sduiDetails.company,
+        description: sduiDetails.description,
+      },
+      {
+        title: 'Engenheiro SDUI',
+        company: 'Empresa SDUI',
+        description: 'Primeiro paragrafo.\nSegundo paragrafo.',
       }
     );
   } finally {

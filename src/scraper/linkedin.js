@@ -20,6 +20,9 @@ const JOB_DETAIL_SELECTORS = {
   title: [
     '.job-details-jobs-unified-top-card__job-title',
     '[class*="job-details-jobs-unified-top-card__job-title"]',
+    '.top-card-layout__title',
+    '.topcard__title',
+    '.sub-nav-cta__header',
     'h1[class*="job-title" i]',
     'h1'
   ],
@@ -30,11 +33,19 @@ const JOB_DETAIL_SELECTORS = {
     'a[href*="/company/"]'
   ],
   description: [
+    '[id^="JobDetails_AboutTheJob_"] [data-testid="expandable-text-box"]',
+    '[data-sdui-component$=".aboutTheJob"] [data-testid="expandable-text-box"]',
+    '[id^="JobDetails_AboutTheJob_"]',
     '#job-details .mt4',
-    '#job-details',
+    '#job-details .jobs-description-content__text',
+    '.jobs-description-content__text',
     '.jobs-description__content',
     '.jobs-box__html-content',
-    '[class*="jobs-description"]'
+    '[data-test-job-details-description]',
+    '[class*="jobs-description"]',
+    '.description__text .show-more-less-html__markup',
+    '.show-more-less-html__markup',
+    '.description__text'
   ],
   applyButton: [
     '.jobs-apply-button--top-card',
@@ -214,6 +225,19 @@ async function findFirstSelector(page, selectors, timeout = 10000) {
   }
 
   throw lastError || new Error(`Nenhum seletor encontrado: ${selectors.join(', ')}`);
+}
+
+async function waitForNonEmptyText(page, selectors, timeout = 10000) {
+  if (typeof page.waitForFunction !== 'function') {
+    return findFirstSelector(page, selectors, timeout);
+  }
+
+  await page.waitForFunction(
+    candidates => candidates.some(selector => Array.from(document.querySelectorAll(selector))
+      .some(element => (element.innerText || element.textContent || '').trim())),
+    selectors,
+    { timeout }
+  );
 }
 
 async function findLoginSubmit(page, timeout = 10000) {
@@ -533,24 +557,37 @@ async function scrapeJobDetails(page, jobUrl, options = {}) {
   await page.goto(jobUrl, { waitUntil: 'domcontentloaded' });
   await assertNoAuthenticationChallenge(page);
 
-  await findFirstSelector(page, JOB_DETAIL_SELECTORS.title, 10000)
-    .catch(() => console.log('Aviso: Elemento de título não encontrado dentro do timeout.'));
+  await waitForNonEmptyText(page, JOB_DETAIL_SELECTORS.description, options.selectorTimeoutMs ?? 10000)
+    .catch(() => console.log('Aviso: Descrição da vaga não encontrada dentro do timeout.'));
 
   const jobData = await page.evaluate((selectors) => {
+    const getText = element => (element?.innerText || element?.textContent || '').trim();
     const findElement = (candidates) => candidates
-      .map(selector => document.querySelector(selector))
-      .find(Boolean);
+      .flatMap(selector => Array.from(document.querySelectorAll(selector)))
+      .find(element => getText(element));
+    const getDescriptionText = element => {
+      if (!element) return '';
+      if (element.matches('[data-testid="expandable-text-box"]')) {
+        const blocks = Array.from(element.querySelectorAll('p, li'))
+          .map(getText)
+          .filter(Boolean);
+        if (blocks.length > 0) return blocks.join('\n');
+      }
+      return getText(element);
+    };
     const title = findElement(selectors.title);
     const company = findElement(selectors.company);
     const description = findElement(selectors.description);
     const button = findElement(selectors.applyButton);
+    const isSduiJobPage = Boolean(document.querySelector('[id^="JobDetails_AboutTheJob_"]'));
+    const pageTitleParts = document.title.split(' | ').map(part => part.trim());
     const rawType = button?.querySelector('.artdeco-button__text')?.innerText?.trim()
       || button?.innerText?.trim()
       || null;
     return {
-      title: title?.innerText?.trim() || 'N/A',
-      company: company?.innerText?.trim() || 'N/A',
-      description: description?.innerText?.trim() || 'N/A',
+      title: getText(title) || (isSduiJobPage ? pageTitleParts[0] : '') || 'N/A',
+      company: getText(company) || (isSduiJobPage ? pageTitleParts[1] : '') || 'N/A',
+      description: getDescriptionText(description) || 'N/A',
       url: window.location.href,
       typeRaw: rawType
     };

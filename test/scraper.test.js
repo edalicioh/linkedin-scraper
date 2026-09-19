@@ -24,11 +24,17 @@ test('deduplica vagas existentes e repetidas na execução e retorna resumo', ()
   withTempDirectory(async (storageDir) => {
     const dbPath = path.join(storageDir, 'jobs.db');
     const seedDb = createDatabase(dbPath);
-    createJobRepository(seedDb).upsert({ jobId: 'existing', url: 'https://jobs/existing' });
+    createJobRepository(seedDb).upsert({
+      jobId: 'existing',
+      title: 'Existing job',
+      description: 'Existing description',
+      url: 'https://jobs/existing',
+    });
     seedDb.close();
 
     const visitedUrls = [];
     const details = [];
+    const jobDelays = [];
     const context = {
       closeCalls: 0,
       newPage: async () => ({ close: async () => {} }),
@@ -43,6 +49,10 @@ test('deduplica vagas existentes e repetidas na execução e retorna resumo', ()
       dependencies: {
         startBrowser: async () => ({ newContext: async () => context }),
         ensureLoggedIn: async () => {},
+        jobDelayMinMs: 1000,
+        jobDelayMaxMs: 2000,
+        jobDelayRandom: () => 0.5,
+        waitBetweenJobs: async delay => jobDelays.push(delay),
         scrapeJobLinks: async (_page, url) => {
           visitedUrls.push(url);
           const page = visitedUrls.length;
@@ -76,6 +86,7 @@ test('deduplica vagas existentes e repetidas na execução e retorna resumo', ()
     assert.equal(visitedUrls.length, 2);
     assert.ok(visitedUrls.every((url) => url.includes('location=S%C3%A3o+Paulo')));
     assert.deepEqual(details, ['https://jobs/new-1', 'https://jobs/new-2']);
+    assert.deepEqual(jobDelays, [1500]);
 
     const readDb = createDatabase(dbPath);
     const saved = createJobRepository(readDb).listAll();

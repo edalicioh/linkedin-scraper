@@ -62,6 +62,18 @@ test('findExistingIds, getById and duplicate upserts use job_id identity', (t) =
   assert.equal(repository.listAll().length, 2);
 });
 
+test('findIncompleteIds identifies jobs missing title or description', (t) => {
+  const repository = repositoryFixture(t);
+  repository.upsert(job({ jobId: 'complete' }));
+  repository.upsert(job({ jobId: 'missing-title', title: null }));
+  repository.upsert(job({ jobId: 'missing-description', description: null }));
+
+  assert.deepEqual(
+    repository.findIncompleteIds(['complete', 'missing-title', 'missing-description']),
+    new Set(['missing-title', 'missing-description'])
+  );
+});
+
 test('upsertMany rolls back the complete batch after a validation failure', (t) => {
   const repository = repositoryFixture(t);
 

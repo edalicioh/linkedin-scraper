@@ -116,6 +116,29 @@ class JobRepository {
     return new Set(rows.map((row) => row.job_id));
   }
 
+  findIncompleteIds(jobIds) {
+    const ids = [...new Set(jobIds.filter(Boolean).map(String))];
+    if (ids.length === 0) {
+      return new Set();
+    }
+
+    const rows = this.db
+      .prepare(
+        `
+        SELECT job_id
+        FROM jobs
+        WHERE job_id IN (SELECT value FROM json_each(?))
+          AND (
+            NULLIF(TRIM(COALESCE(title, '')), '') IS NULL
+            OR NULLIF(TRIM(COALESCE(description, '')), '') IS NULL
+          )
+        `
+      )
+      .all(JSON.stringify(ids));
+
+    return new Set(rows.map((row) => row.job_id));
+  }
+
   upsert(job) {
     const normalized = normalizeJob(job);
     this.upsertStatement.run(normalized);
