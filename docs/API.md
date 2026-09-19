@@ -39,6 +39,10 @@ Exemplo:
 curl http://localhost:3000/
 ```
 
+### `GET /app` ou `GET /index.html`
+
+Interface web simples servida estaticamente para visualizacao e filtragem de vagas salvas e acompanhamento de tarefas de scraping em tempo real no navegador.
+
 ## Iniciar scraping
 
 ### `POST /api/scrape`

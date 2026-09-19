@@ -35,6 +35,10 @@ npm run start:api
 A execucao direta usa `php` e `Brasil` como valores padrao. A API escuta em
 `http://localhost:3000` por padrao e aceita outra porta via `PORT`.
 
+Com a API em execucao, a interface web simples fica disponivel em:
+`http://localhost:3000/app` (ou `http://localhost:3000/index.html`).
+Ela permite visualizar vagas com busca/filtros, paginacao e enfileirar novas coletas.
+
 ## Docker
 
 Configure `LINKEDIN_EMAIL` e `LINKEDIN_PASSWORD` no arquivo `.env` e suba a API:
@@ -128,6 +132,7 @@ dependem do DOM atual e nao sao declarados permanentemente validados.
 ```text
 api.js                         Entry point da API e shutdown gracioso
 scraper.js                     Orquestracao do scraping
+public/                        Interface web simples (HTML, CSS, JS)
 src/app.js                     Factory da aplicacao Express
 src/core/                      Configuracao e ciclo de vida do navegador
 src/db/                        Banco e migracoes SQLite

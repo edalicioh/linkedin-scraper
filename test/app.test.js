@@ -56,3 +56,28 @@ test('GET /api/jobs returns an empty paginated result without scraping', async (
     });
   });
 });
+
+test('GET /index.html and /app serve the web interface', async () => {
+  await withServer(async (baseUrl) => {
+    const indexRes = await fetch(`${baseUrl}/index.html`);
+    assert.equal(indexRes.status, 200);
+    const indexText = await indexRes.text();
+    assert.match(indexText, /<title>LinkedIn Jobs - Visualizador de Vagas<\/title>/);
+
+    const appRes = await fetch(`${baseUrl}/app`);
+    assert.equal(appRes.status, 200);
+    const appText = await appRes.text();
+    assert.match(appText, /<title>LinkedIn Jobs - Visualizador de Vagas<\/title>/);
+  });
+});
+
+test('OPTIONS request returns CORS headers', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/api/jobs`, {
+      method: 'OPTIONS',
+    });
+
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get('access-control-allow-origin'), '*');
+  });
+});

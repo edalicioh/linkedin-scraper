@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LinkedIn Jobs - Visualizador de Vagas</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="header-content">
+        <div class="brand">
+          <div class="brand-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="20" height="14" x="2" y="7" rx="2" ry="2"/>
+              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>
+            </svg>
+          </div>
+          <div>
+            <h1>LinkedIn Job Scraper</h1>
+            <p class="subtitle">Consumo de API e visualização de vagas salvas</p>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <div id="api-status-badge" class="status-indicator checking">
+            <span class="status-dot"></span>
+            <span id="api-status-text">Verificando API...</span>
+          </div>
+          <button id="toggle-config-btn" class="btn btn-secondary btn-sm" title="Configurar URL da API">
+            ⚙️ API
+          </button>
+        </div>
+      </div>
+
+      <!-- Configuração da URL da API (recolhível) -->
+      <div id="api-config-panel" class="config-panel hidden">
+        <label for="api-url-input">Endereço da API:</label>
+        <div class="config-input-group">
+          <input type="text" id="api-url-input" placeholder="http://localhost:3000" />
+          <button id="save-config-btn" class="btn btn-primary btn-sm">Salvar</button>
+          <button id="reset-config-btn" class="btn btn-secondary btn-sm">Restaurar Padrão</button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Notificações / Alertas globais -->
+    <div id="global-alert" class="alert hidden" role="alert">
+      <span id="global-alert-message"></span>
+      <button id="close-alert-btn" class="alert-close">&times;</button>
+    </div>
+
+    <!-- Seção de Scraping (Disparar nova coleta) -->
+    <section class="card scrape-section">
+      <div class="card-header" id="scrape-toggle-header">
+        <div class="card-title-group">
+          <span class="icon">🚀</span>
+          <h2>Nova Coleta de Vagas (Scraper)</h2>
+        </div>
+        <button id="toggle-scrape-btn" class="btn btn-link">Recolher</button>
+      </div>
+
+      <div id="scrape-content" class="card-body">
+        <form id="scrape-form" class="scrape-form">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="scrape-keywords">Palavras-chave *</label>
+              <input
+                type="text"
+                id="scrape-keywords"
+                placeholder="Ex: Desenvolvedor Node.js, React, PHP"
+                required
+              />
+            </div>
+            <div class="form-group">
+              <label for="scrape-location">Localização *</label>
+              <input
+                type="text"
+                id="scrape-location"
+                placeholder="Ex: Brasil, São Paulo, Remoto"
+                required
+              />
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" id="start-scrape-btn" class="btn btn-primary">
+              <span class="btn-text">Iniciar Scraping</span>
+              <span class="btn-spinner hidden"></span>
+            </button>
+          </div>
+        </form>
+
+        <!-- Acompanhamento de Tarefa Ativa -->
+        <div id="scrape-task-tracker" class="task-tracker hidden">
+          <div class="task-tracker-header">
+            <div>
+              <strong>Tarefa de Coleta:</strong>
+              <code id="task-id">--</code>
+            </div>
+            <span id="task-status-badge" class="badge badge-pending">PENDING</span>
+          </div>
+          <p id="task-info" class="task-info">Aguardando início do processamento...</p>
+          <div id="task-counts" class="task-counts hidden">
+            <div class="count-box">
+              <span class="count-value" id="count-found">0</span>
+              <span class="count-label">Encontradas</span>
+            </div>
+            <div class="count-box">
+              <span class="count-value" id="count-processed">0</span>
+              <span class="count-label">Processadas</span>
+            </div>
+            <div class="count-box">
+              <span class="count-value" id="count-saved">0</span>
+              <span class="count-label">Salvas no DB</span>
+            </div>
+            <div class="count-box">
+              <span class="count-value" id="count-ignored">0</span>
+              <span class="count-label">Ignoradas/Dups</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Filtros de Busca de Vagas -->
+    <section class="card filters-section">
+      <form id="filters-form" class="filters-form">
+        <div class="filters-grid">
+          <div class="form-group">
+            <label for="filter-search">Busca por texto (Título ou Empresa)</label>
+            <input
+              type="text"
+              id="filter-search"
+              placeholder="Digite o cargo ou empresa..."
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="filter-location">Localização</label>
+            <input
+              type="text"
+              id="filter-location"
+              placeholder="Ex: São Paulo, Remoto"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="filter-company">Empresa</label>
+            <input
+              type="text"
+              id="filter-company"
+              placeholder="Nome da empresa"
+            />
+          </div>
+
+          <div class="form-group">
+            <label for="filter-type">Tipo de Vaga</label>
+            <input
+              type="text"
+              id="filter-type"
+              placeholder="Ex: Tempo integral, Meio período"
+            />
+          </div>
+        </div>
+
+        <div class="filters-actions">
+          <div class="action-buttons">
+            <button type="submit" class="btn btn-primary">
+              🔍 Filtrar Vagas
+            </button>
+            <button type="button" id="clear-filters-btn" class="btn btn-secondary">
+              Limpar Filtros
+            </button>
+          </div>
+          <button type="button" id="refresh-jobs-btn" class="btn btn-outline" title="Recarregar dados">
+            🔄 Atualizar
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Resumo dos Resultados e Controles -->
+    <div class="results-header">
+      <div class="results-summary">
+        <h3 id="results-count-title">Vagas Cadastradas</h3>
+        <span id="results-count-detail" class="text-muted">Carregando...</span>
+      </div>
+
+      <div class="pagination-limit">
+        <label for="select-limit">Vagas por página:</label>
+        <select id="select-limit">
+          <option value="10">10</option>
+          <option value="25" selected>25</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Lista de Vagas -->
+    <main class="jobs-container" id="jobs-container">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Carregando vagas da API...</p>
+      </div>
+    </main>
+
+    <!-- Paginação -->
+    <nav class="pagination-nav" id="pagination-nav" aria-label="Navegação entre páginas">
+      <button id="prev-page-btn" class="btn btn-secondary" disabled>&larr; Anterior</button>
+      <span id="pagination-info" class="pagination-info">Página 1 de 1</span>
+      <button id="next-page-btn" class="btn btn-secondary" disabled>Próxima &rarr;</button>
+    </nav>
+
+    <!-- Rodapé -->
+    <footer class="footer">
+      <p>LinkedIn Job Scraper • API local em execução</p>
+      <div class="footer-links">
+        <a id="raw-api-link" href="/api/jobs" target="_blank" rel="noopener noreferrer">Ver JSON da API (/api/jobs)</a>
+      </div>
+    </footer>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
