@@ -2,9 +2,10 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 
 const { createApp } = require('../src/app');
+const { createJobRouter } = require('../src/routes/jobRoutes');
 
-async function withServer(callback) {
-  const server = createApp().listen(0);
+async function withServer(callback, dependencies) {
+  const server = createApp(dependencies).listen(0);
   const address = server.address();
   const baseUrl = `http://127.0.0.1:${address.port}`;
 
@@ -44,17 +45,28 @@ test('POST /api/scrape validates required fields', async () => {
 });
 
 test('GET /api/jobs returns an empty paginated result without scraping', async () => {
-  await withServer(async (baseUrl) => {
-    const response = await fetch(`${baseUrl}/api/jobs`);
-
-    assert.equal(response.status, 200);
-    assert.deepEqual(await response.json(), {
-      items: [],
-      page: 1,
-      limit: 25,
-      total: 0,
-    });
+  const jobRoutes = createJobRouter({
+    provider: {
+      async queryJobs() {
+        return { items: [], total: 0 };
+      },
+    },
   });
+
+  await withServer(
+    async (baseUrl) => {
+      const response = await fetch(`${baseUrl}/api/jobs`);
+
+      assert.equal(response.status, 200);
+      assert.deepEqual(await response.json(), {
+        items: [],
+        page: 1,
+        limit: 25,
+        total: 0,
+      });
+    },
+    { jobRoutes }
+  );
 });
 
 test('GET /index.html and /app serve the web interface', async () => {
