@@ -13,16 +13,19 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
   const searchFixture = await fs.readFile(SEARCH_FIXTURE, 'utf8');
   const server = createLocalServer((request, response) => {
     response.setHeader('content-type', 'text/html; charset=utf-8');
-      if (request.url === '/search') {
-        response.end(searchFixture);
-        return;
-      }
-      if (request.url === '/jobs/view/modern') {
-        response.end(`
+    if (request.url === '/search') {
+      response.end(searchFixture);
+      return;
+    }
+    if (request.url === '/jobs/view/modern') {
+      response.end(`
           <!doctype html>
           <html><body>
             <h1 class="job-details-jobs-unified-top-card__job-title">Engenheiro PHP</h1>
             <div class="job-details-jobs-unified-top-card__company-name">Empresa Moderna</div>
+            <div class="job-details-jobs-unified-top-card__primary-description-container">
+              <span class="tvm__text">Rio de Janeiro, RJ</span>
+            </div>
             <div id="job-details"></div>
             <div class="jobs-description-content__text"><div>Descricao moderna</div></div>
             <button class="jobs-apply-button" aria-label="Candidatar-se">
@@ -30,10 +33,10 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
             </button>
           </body></html>
         `);
-        return;
-      }
-      if (request.url === '/jobs/view/current') {
-        response.end(`
+      return;
+    }
+    if (request.url === '/jobs/view/current') {
+      response.end(`
           <!doctype html>
           <html><body>
             <h1></h1>
@@ -49,10 +52,10 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
             </script>
           </body></html>
         `);
-        return;
-      }
-      if (request.url === '/jobs/view/sdui') {
-        response.end(`
+      return;
+    }
+    if (request.url === '/jobs/view/sdui') {
+      response.end(`
           <!doctype html>
           <html><head><title>Engenheiro SDUI | Empresa SDUI | LinkedIn</title></head><body>
             <div id="JobDetails_AboutTheJob_3001">
@@ -65,13 +68,16 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
             </div>
           </body></html>
         `);
-        return;
-      }
-      response.end(`
+      return;
+    }
+    response.end(`
       <!doctype html>
       <html><body>
         <h1 class="t-24 job-details-jobs-unified-top-card__job-title">Engenheiro Node</h1>
         <div class="job-details-jobs-unified-top-card__company-name"><a>Empresa Local</a></div>
+        <div class="job-details-jobs-unified-top-card__primary-description-container">
+          <span class="tvm__text">São Paulo, SP</span><span aria-hidden="true"> · </span><span>Remoto</span>
+        </div>
         <div id="job-details"><div class="mt4">Descricao local</div></div>
         <button class="jobs-apply-button--top-card"><span class="artdeco-button__text">Easy Apply</span></button>
       </body></html>
@@ -103,6 +109,7 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
       {
         title: details.title,
         company: details.company,
+        jobLocation: details.jobLocation,
         description: details.description,
         type: details.type,
         externalUrl: details.externalUrl,
@@ -110,6 +117,7 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
       {
         title: 'Engenheiro Node',
         company: 'Empresa Local',
+        jobLocation: 'São Paulo, SP',
         description: 'Descricao local',
         type: 'Easy Apply',
         externalUrl: null,
@@ -124,12 +132,14 @@ test('executa busca e detalhes em Chromium contra servidor local', async () => {
       {
         title: modernDetails.title,
         company: modernDetails.company,
+        jobLocation: modernDetails.jobLocation,
         description: modernDetails.description,
         type: modernDetails.type,
       },
       {
         title: 'Engenheiro PHP',
         company: 'Empresa Moderna',
+        jobLocation: 'Rio de Janeiro, RJ',
         description: 'Descricao moderna',
         type: 'Easy Apply',
       }

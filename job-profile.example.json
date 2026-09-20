@@ -1,0 +1,43 @@
+{
+  "version": "v1",
+  "targetRole": "Desenvolvedor backend/full stack",
+  "minimumScore": 0,
+  "criteria": [
+    {
+      "id": "contractType",
+      "label": "Contrato PJ",
+      "weight": 30,
+      "description": "PJ é obrigatório e deve estar explicitamente informado."
+    },
+    {
+      "id": "workMode",
+      "label": "Trabalho remoto",
+      "weight": 30,
+      "description": "Remoto é obrigatório; híbrido e presencial não servem."
+    },
+    {
+      "id": "technicalFit",
+      "label": "Aderência técnica",
+      "weight": 25,
+      "description": "Priorize as tecnologias e responsabilidades que procuro."
+    },
+    {
+      "id": "seniority",
+      "label": "Senioridade",
+      "weight": 10,
+      "description": "A senioridade deve ser compatível com meu nível."
+    },
+    {
+      "id": "salary",
+      "label": "Remuneração",
+      "weight": 5,
+      "description": "Valorize remuneração informada e compatível."
+    },
+    {
+      "id": "english",
+      "label": "Inglês",
+      "weight": 0,
+      "description": "Considere inglês apenas quando for requisito explícito."
+    }
+  ]
+}

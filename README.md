@@ -25,6 +25,17 @@ npx playwright install chromium
 Copie `.env.example` para `.env` e substitua os valores ficticios. O navegador
 permanece visivel por padrao; use `HEADLESS=true` somente quando apropriado.
 
+## Triagem por IA
+
+Depois de extrair os metadados da vaga, o scraper chama uma API compatível com
+OpenAI em `AI_BASE_URL`. Todas as vagas detalhadas são salvas, mesmo quando não
+atingem os critérios de PJ, remoto ou pontuação. A nota de 0 a 100, a
+elegibilidade e as evidências retornadas ficam salvas no SQLite.
+
+Configure `AI_API_KEY` e o identificador real em `AI_MODEL`. Para personalizar
+os pesos, copie `job-profile.example.json` para `job-profile.json` e ajuste os
+itens de `criteria`; o arquivo local é ignorado pelo Git.
+
 ## Executar
 
 ```bash

@@ -197,6 +197,18 @@ Resposta `200 OK`:
       "applicationTypeRaw": "Candidatura simplificada",
       "url": "https://www.linkedin.com/jobs/view/4456258553/",
       "externalUrl": null,
+      "ai": {
+        "eligible": true,
+        "isPJ": true,
+        "isRemote": true,
+        "score": 88,
+        "summary": "Boa aderência ao perfil.",
+        "evidence": { "pj": "Contrato PJ", "remote": "100% remoto" },
+        "criteria": {},
+        "model": "modelo-local",
+        "profileVersion": "v1",
+        "scoredAt": "2026-09-18T14:03:10.000Z"
+      },
       "extractionDate": "2026-09-18T14:03:10.000Z",
       "firstSeenAt": "2026-09-18T14:03:10.000Z",
       "lastSeenAt": "2026-09-18T14:03:10.000Z"

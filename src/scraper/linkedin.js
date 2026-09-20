@@ -32,6 +32,14 @@ const JOB_DETAIL_SELECTORS = {
     '[class*="job-details"][class*="company-name"] a',
     'a[href*="/company/"]'
   ],
+  location: [
+    '.job-details-jobs-unified-top-card__primary-description-container a',
+    '.job-details-jobs-unified-top-card__primary-description-container .tvm__text',
+    '.top-card-layout__first-subline a',
+    '.top-card-layout__second-subline',
+    '.topcard__flavor',
+    '[class*="job-location"]'
+  ],
   description: [
     '[id^="JobDetails_AboutTheJob_"] [data-testid="expandable-text-box"]',
     '[data-sdui-component$=".aboutTheJob"] [data-testid="expandable-text-box"]',
@@ -577,6 +585,7 @@ async function scrapeJobDetails(page, jobUrl, options = {}) {
     };
     const title = findElement(selectors.title);
     const company = findElement(selectors.company);
+    const location = findElement(selectors.location);
     const description = findElement(selectors.description);
     const button = findElement(selectors.applyButton);
     const isSduiJobPage = Boolean(document.querySelector('[id^="JobDetails_AboutTheJob_"]'));
@@ -584,9 +593,13 @@ async function scrapeJobDetails(page, jobUrl, options = {}) {
     const rawType = button?.querySelector('.artdeco-button__text')?.innerText?.trim()
       || button?.innerText?.trim()
       || null;
+    const locationText = getText(location)
+      .split(/\s*[·•]\s*/)[0]
+      .trim();
     return {
       title: getText(title) || (isSduiJobPage ? pageTitleParts[0] : '') || 'N/A',
       company: getText(company) || (isSduiJobPage ? pageTitleParts[1] : '') || 'N/A',
+      jobLocation: locationText || null,
       description: getDescriptionText(description) || 'N/A',
       url: window.location.href,
       typeRaw: rawType

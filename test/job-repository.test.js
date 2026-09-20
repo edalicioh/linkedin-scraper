@@ -21,10 +21,14 @@ function job(overrides = {}) {
     jobId: '100',
     title: 'Backend developer',
     company: 'Example',
+    jobLocation: 'São Paulo, SP',
     description: 'Build things',
     type: 'Easy Apply',
     url: 'https://www.linkedin.com/jobs/view/100',
     externalUrl: null,
+    aiIsPj: true,
+    aiIsRemote: true,
+    aiScore: 80,
     extractionDate: '2026-01-01T00:00:00.000Z',
     ...overrides,
   };
@@ -92,4 +96,26 @@ test('missing values become NULL instead of creating new N/A values', (t) => {
   assert.equal(saved.description, null);
   assert.equal(saved.type, null);
   assert.equal(saved.applicationTypeRaw, null);
+});
+
+test('persiste a classificação e a pontuação da IA', (t) => {
+  const repository = repositoryFixture(t);
+  const saved = repository.upsert(
+    job({
+      aiIsPj: true,
+      aiIsRemote: true,
+      aiScore: 88,
+      aiSummary: 'Boa aderência',
+      aiEvidence: { pj: 'PJ', remote: 'Remoto' },
+      aiCriteria: { technicalFit: { score: 90 } },
+      aiModel: 'local-model',
+      aiProfileVersion: 'v1',
+      aiScoredAt: '2026-01-01T00:00:00.000Z',
+    })
+  );
+
+  assert.equal(saved.ai.score, 88);
+  assert.equal(saved.ai.isPJ, true);
+  assert.equal(saved.ai.isRemote, true);
+  assert.deepEqual(saved.ai.evidence, { pj: 'PJ', remote: 'Remoto' });
 });

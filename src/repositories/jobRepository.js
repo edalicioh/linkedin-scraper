@@ -14,6 +14,29 @@ function timestamp(value) {
   return nullIfMissing(value) || new Date().toISOString();
 }
 
+function nullableBoolean(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'boolean') return value ? 1 : 0;
+  if (value === 1 || value === '1' || value === true) return 1;
+  if (value === 0 || value === '0' || value === false) return 0;
+  return null;
+}
+
+function nullableJson(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value === 'string') return value;
+  return JSON.stringify(value);
+}
+
+function parseJson(value) {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch (_error) {
+    return null;
+  }
+}
+
 function normalizeJob(job) {
   const jobId = nullIfMissing(job.jobId ?? job.job_id);
   const url = nullIfMissing(job.url);
@@ -41,6 +64,17 @@ function normalizeJob(job) {
     applicationTypeRaw,
     url: String(url),
     externalUrl: nullIfMissing(job.externalUrl ?? job.external_url),
+    aiIsPj: nullableBoolean(job.aiIsPj ?? job.ai_is_pj ?? job.isPJ),
+    aiIsRemote: nullableBoolean(job.aiIsRemote ?? job.ai_is_remote ?? job.isRemote),
+    aiScore: job.aiScore ?? job.ai_score ?? null,
+    aiSummary: nullIfMissing(job.aiSummary ?? job.ai_summary),
+    aiEvidence: nullableJson(job.aiEvidence ?? job.ai_evidence ?? job.evidence),
+    aiCriteria: nullableJson(job.aiCriteria ?? job.ai_criteria ?? job.criteria),
+    aiModel: nullIfMissing(job.aiModel ?? job.ai_model ?? job.model),
+    aiProfileVersion: nullIfMissing(
+      job.aiProfileVersion ?? job.ai_profile_version ?? job.profileVersion
+    ),
+    aiScoredAt: nullIfMissing(job.aiScoredAt ?? job.ai_scored_at ?? job.scoredAt),
     firstSeenAt: timestamp(job.firstSeenAt ?? job.first_seen_at ?? extractedAt),
     lastSeenAt: timestamp(job.lastSeenAt ?? job.last_seen_at ?? extractedAt),
     extractedAt,
@@ -63,6 +97,21 @@ function toPublicJob(row) {
     applicationTypeRaw: row.application_type_raw,
     url: row.url,
     externalUrl: row.external_url,
+    ai:
+      row.ai_score === null || row.ai_score === undefined
+        ? null
+        : {
+            eligible: Boolean(row.ai_is_pj && row.ai_is_remote),
+            isPJ: Boolean(row.ai_is_pj),
+            isRemote: Boolean(row.ai_is_remote),
+            score: row.ai_score,
+            summary: row.ai_summary,
+            evidence: parseJson(row.ai_evidence) || {},
+            criteria: parseJson(row.ai_criteria) || {},
+            model: row.ai_model,
+            profileVersion: row.ai_profile_version,
+            scoredAt: row.ai_scored_at,
+          },
     extractionDate: row.extracted_at,
     firstSeenAt: row.first_seen_at,
     lastSeenAt: row.last_seen_at,
@@ -83,10 +132,14 @@ class JobRepository {
       INSERT INTO jobs (
         job_id, title, company, query_location, job_location, description,
         application_type, application_type_raw, url, external_url,
+        ai_is_pj, ai_is_remote, ai_score, ai_summary, ai_evidence, ai_criteria,
+        ai_model, ai_profile_version, ai_scored_at,
         first_seen_at, last_seen_at, extracted_at
       ) VALUES (
         @jobId, @title, @company, @queryLocation, @jobLocation, @description,
         @applicationType, @applicationTypeRaw, @url, @externalUrl,
+        @aiIsPj, @aiIsRemote, @aiScore, @aiSummary, @aiEvidence, @aiCriteria,
+        @aiModel, @aiProfileVersion, @aiScoredAt,
         @firstSeenAt, @lastSeenAt, @extractedAt
       )
       ON CONFLICT(job_id) DO UPDATE SET
@@ -99,6 +152,15 @@ class JobRepository {
         application_type_raw = excluded.application_type_raw,
         url = excluded.url,
         external_url = excluded.external_url,
+        ai_is_pj = excluded.ai_is_pj,
+        ai_is_remote = excluded.ai_is_remote,
+        ai_score = excluded.ai_score,
+        ai_summary = excluded.ai_summary,
+        ai_evidence = excluded.ai_evidence,
+        ai_criteria = excluded.ai_criteria,
+        ai_model = excluded.ai_model,
+        ai_profile_version = excluded.ai_profile_version,
+        ai_scored_at = excluded.ai_scored_at,
         last_seen_at = excluded.last_seen_at,
         extracted_at = excluded.extracted_at
     `);

@@ -17,3 +17,4 @@ storage/*.db
 storage/*.db-*
 storage/*.sqlite
 storage/*.sqlite-*
+job-profile.json

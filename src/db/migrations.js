@@ -19,6 +19,20 @@ const MIGRATIONS = [
       );
     `,
   },
+  {
+    version: 2,
+    sql: `
+      ALTER TABLE jobs ADD COLUMN ai_is_pj INTEGER;
+      ALTER TABLE jobs ADD COLUMN ai_is_remote INTEGER;
+      ALTER TABLE jobs ADD COLUMN ai_score REAL;
+      ALTER TABLE jobs ADD COLUMN ai_summary TEXT;
+      ALTER TABLE jobs ADD COLUMN ai_evidence TEXT;
+      ALTER TABLE jobs ADD COLUMN ai_criteria TEXT;
+      ALTER TABLE jobs ADD COLUMN ai_model TEXT;
+      ALTER TABLE jobs ADD COLUMN ai_profile_version TEXT;
+      ALTER TABLE jobs ADD COLUMN ai_scored_at TEXT;
+    `,
+  },
 ];
 
 function applyMigrations(db) {

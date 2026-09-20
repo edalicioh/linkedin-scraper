@@ -5,6 +5,7 @@ const { parseSearchUrl, generatePaginationUrls, TIME_PERIODS } = require('./src/
 const config = require('./src/core/config');
 const { createDatabase } = require('./src/db/database');
 const { createJobRepository } = require('./src/repositories/jobRepository');
+const { createAiJobRanker } = require('./src/services/ai-job-ranker');
 
 function wait(milliseconds) {
   return new Promise(resolve => setTimeout(resolve, milliseconds));
@@ -28,6 +29,7 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
     ensureLoggedIn,
     scrapeJobLinks,
     scrapeJobDetails,
+    rankJob: null,
     jobDelayMinMs: 2000,
     jobDelayMaxMs: 5000,
     jobDelayRandom: Math.random,
@@ -83,9 +85,6 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
 
     const jobIds = allJobLinks.map((job) => job && job.jobId);
     const existingJobIds = repository.findExistingIds(jobIds);
-    const incompleteJobIds = typeof repository.findIncompleteIds === 'function'
-      ? repository.findIncompleteIds(jobIds)
-      : new Set();
     console.log(`Encontrados ${existingJobIds.size} jobId's já coletados.`);
 
     const filteredJobs = allJobLinks.filter((job) => {
@@ -94,8 +93,7 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
       }
 
       if (existingJobIds.has(job.jobId)) {
-        if (!incompleteJobIds.has(job.jobId)) return false;
-        incompleteJobIds.delete(job.jobId);
+        return false;
       }
 
       existingJobIds.add(job.jobId);
@@ -104,7 +102,7 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
     console.log(`Total de vagas encontradas: ${allJobLinks.length}. Vagas novas após filtragem: ${filteredJobs.length}`);
 
     const linksToScrape = filteredJobs.slice(0, limit);
-    console.log(`Iniciando extração de detalhes para ${linksToScrape.length} vagas...`);
+    console.log(`Iniciando extração de detalhes para no máximo ${linksToScrape.length} vagas...`);
 
     const jobs = [];
     const extractionDate = new Date().toISOString();
@@ -113,6 +111,10 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
       minimumDelay,
       nonNegativeNumber(dependencies.jobDelayMaxMs, 5000)
     );
+    let rankJob = dependencies.rankJob;
+    let evaluated = 0;
+    let rejected = 0;
+    let aiFailed = 0;
     for (const [index, job] of linksToScrape.entries()) {
       if (index > 0) {
         const randomValue = Math.min(1, Math.max(0, Number(dependencies.jobDelayRandom())));
@@ -125,7 +127,45 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
       jobData.jobId = job.jobId;
       jobData.extractionDate = extractionDate;
       jobData.queryLocation = location;
+
+      if (!rankJob) {
+        rankJob = createAiJobRanker({
+          baseUrl: config.aiBaseUrl,
+          apiKey: config.aiApiKey,
+          model: config.aiModel,
+          profilePath: config.aiProfilePath,
+          timeoutMs: config.aiTimeoutMs,
+        });
+      }
+
+      let ranking;
+      try {
+        ranking = await rankJob(jobData, { keywords, location });
+        evaluated += 1;
+      } catch (error) {
+        aiFailed += 1;
+        console.error(`Falha ao pontuar a vaga ${job.jobId}; metadados serão salvos sem score:`, error);
+      }
+
+      if (ranking) {
+        jobData.aiIsPj = ranking.isPJ;
+        jobData.aiIsRemote = ranking.isRemote;
+        jobData.aiScore = ranking.score;
+        jobData.aiSummary = ranking.summary;
+        jobData.aiEvidence = ranking.evidence;
+        jobData.aiCriteria = ranking.criteria;
+        jobData.aiModel = ranking.model;
+        jobData.aiProfileVersion = ranking.profileVersion;
+        jobData.aiScoredAt = ranking.scoredAt;
+      }
+
+      if (ranking && !ranking.eligible) {
+        rejected += 1;
+        console.log(`Vaga ${job.jobId} salva com score abaixo dos critérios obrigatórios.`);
+      }
+
       jobs.push(jobData);
+      if (jobs.length >= limit) break;
     }
 
     if (jobs.length > 0) {
@@ -138,6 +178,9 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
     return {
       found: allJobLinks.length,
       ignored: allJobLinks.length - filteredJobs.length,
+      rejected,
+      evaluated,
+      aiFailed,
       processed: jobs.length,
       saved: jobs.length,
       totalResults: totalResultsCount,
@@ -147,6 +190,9 @@ async function runScraper(keywords = 'php', location = 'Brasil', options = {}) {
         jobs: jobs.length,
         found: allJobLinks.length,
         ignored: allJobLinks.length - filteredJobs.length,
+        rejected,
+        evaluated,
+        aiFailed,
         processed: jobs.length,
         saved: jobs.length,
       },

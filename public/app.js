@@ -184,14 +184,17 @@ function renderJobs(jobs) {
     return;
   }
 
-  const html = jobs.map((job) => {
-    const company = job.company || 'Empresa não informada';
-    const location = job.jobLocation || job.queryLocation || 'Localização não informada';
-    const dateFormatted = formatDate(job.extractionDate || job.firstSeenAt);
-    const hasExternalUrl = Boolean(job.externalUrl);
-    const description = job.description ? escapeHtml(job.description) : 'Nenhuma descrição detalhada disponível.';
+  const html = jobs
+    .map((job) => {
+      const company = job.company || 'Empresa não informada';
+      const location = job.jobLocation || job.queryLocation || 'Localização não informada';
+      const dateFormatted = formatDate(job.extractionDate || job.firstSeenAt);
+      const hasExternalUrl = Boolean(job.externalUrl);
+      const description = job.description
+        ? escapeHtml(job.description)
+        : 'Nenhuma descrição detalhada disponível.';
 
-    return `
+      return `
       <article class="job-card" data-job-id="${escapeHtml(job.jobId)}">
         <header class="job-card-header">
           <div>
@@ -204,6 +207,12 @@ function renderJobs(jobs) {
         </header>
 
         <div class="job-badges">
+          ${
+            job.ai
+              ? `<span class="tag tag-type">⭐ Nota IA: ${escapeHtml(String(job.ai.score))}</span>`
+              : ''
+          }
+          ${job.ai?.isPJ && job.ai?.isRemote ? '<span class="tag tag-app">PJ · Remoto</span>' : ''}
           ${job.type ? `<span class="tag tag-type">💼 ${escapeHtml(job.type)}</span>` : ''}
           ${
             job.applicationTypeRaw
@@ -214,6 +223,7 @@ function renderJobs(jobs) {
         </div>
 
         <div class="job-description-wrapper">
+          ${job.ai?.summary ? `<p class="text-muted">Triagem IA: ${escapeHtml(job.ai.summary)}</p>` : ''}
           <div class="job-description-content collapsed" id="desc-${escapeHtml(job.jobId)}">
             ${description}
           </div>
@@ -242,7 +252,8 @@ function renderJobs(jobs) {
         </footer>
       </article>
     `;
-  }).join('');
+    })
+    .join('');
 
   container.innerHTML = html;
 
