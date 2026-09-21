@@ -220,7 +220,19 @@ class JobRepository {
     return this.listAllStatement.all().map(toPublicJob);
   }
 
-  queryJobs({ page = 1, limit = 25, search, type, company, location } = {}) {
+  queryJobs({
+    page = 1,
+    limit = 25,
+    search,
+    type,
+    company,
+    location,
+    sort = 'score',
+    order = 'desc',
+    minScore,
+    pjOnly,
+    remoteOnly,
+  } = {}) {
     const conditions = [];
     const params = {};
 
@@ -244,16 +256,35 @@ class JobRepository {
       );
       params.location = `%${String(location).toLowerCase()}%`;
     }
+    if (minScore !== undefined && minScore !== null && minScore !== '') {
+      conditions.push("ai_score IS NOT NULL AND ai_score >= @minScore");
+      params.minScore = Number(minScore);
+    }
+    if (pjOnly === true || pjOnly === 'true' || pjOnly === 1 || pjOnly === '1') {
+      conditions.push("ai_is_pj = 1");
+    }
+    if (remoteOnly === true || remoteOnly === 'true' || remoteOnly === 1 || remoteOnly === '1') {
+      conditions.push("ai_is_remote = 1");
+    }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const total = this.db.prepare(`SELECT COUNT(*) AS count FROM jobs ${where}`).get(params).count;
     const offset = (page - 1) * limit;
+
+    const dir = String(order).toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+    let orderByClause;
+    if (sort === 'date' || sort === 'recent') {
+      orderByClause = `extracted_at IS NULL ASC, extracted_at ${dir}, job_id ASC`;
+    } else {
+      orderByClause = `ai_score IS NULL ASC, ai_score ${dir}, extracted_at IS NULL ASC, extracted_at DESC, job_id ASC`;
+    }
+
     const items = this.db
       .prepare(
         `
       SELECT * FROM jobs
       ${where}
-      ORDER BY extracted_at IS NULL ASC, extracted_at DESC, job_id ASC
+      ORDER BY ${orderByClause}
       LIMIT @limit OFFSET @offset
     `
       )

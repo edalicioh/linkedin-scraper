@@ -119,3 +119,30 @@ test('persiste a classificação e a pontuação da IA', (t) => {
   assert.equal(saved.ai.isRemote, true);
   assert.deepEqual(saved.ai.evidence, { pj: 'PJ', remote: 'Remoto' });
 });
+
+test('queryJobs ordena por ai_score decrescente por padrão e coloca vagas sem score por último', (t) => {
+  const repository = repositoryFixture(t);
+  repository.upsert(job({ jobId: 'j1', aiScore: 50, extractionDate: '2026-01-01T00:00:00.000Z' }));
+  repository.upsert(job({ jobId: 'j2', aiScore: 90, extractionDate: '2026-01-02T00:00:00.000Z' }));
+  repository.upsert(job({ jobId: 'j3', aiScore: null, extractionDate: '2026-01-03T00:00:00.000Z' }));
+  repository.upsert(job({ jobId: 'j4', aiScore: 75, extractionDate: '2026-01-04T00:00:00.000Z' }));
+
+  const defaultResult = repository.queryJobs();
+  assert.deepEqual(
+    defaultResult.items.map((item) => item.jobId),
+    ['j2', 'j4', 'j1', 'j3']
+  );
+
+  const dateResult = repository.queryJobs({ sort: 'date' });
+  assert.deepEqual(
+    dateResult.items.map((item) => item.jobId),
+    ['j4', 'j3', 'j2', 'j1']
+  );
+
+  const minScoreResult = repository.queryJobs({ minScore: 70 });
+  assert.deepEqual(
+    minScoreResult.items.map((item) => item.jobId),
+    ['j2', 'j4']
+  );
+});
+

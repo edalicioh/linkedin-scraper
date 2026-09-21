@@ -163,3 +163,24 @@ test('returns an empty page for an empty JSON source', async () => {
     await fs.rm(directory, { recursive: true, force: true });
   }
 });
+
+test('validates optional sort, order, and minScore parameters in parseJobQuery', () => {
+  const query = parseJobQuery({
+    sort: 'SCORE',
+    order: 'DESC',
+    minScore: '80',
+    pjOnly: 'true',
+    remoteOnly: '1',
+  });
+
+  assert.equal(query.sort, 'score');
+  assert.equal(query.order, 'desc');
+  assert.equal(query.minScore, 80);
+  assert.equal(query.pjOnly, true);
+  assert.equal(query.remoteOnly, true);
+
+  assert.throws(() => parseJobQuery({ sort: 'invalid' }), JobQueryValidationError);
+  assert.throws(() => parseJobQuery({ order: 'random' }), JobQueryValidationError);
+  assert.throws(() => parseJobQuery({ minScore: '101' }), JobQueryValidationError);
+});
+

@@ -62,7 +62,7 @@ function parseJobQuery(query = {}) {
     throw new JobQueryValidationError('Query parameters must be an object.');
   }
 
-  return {
+  const normalized = {
     page: parsePositiveInteger(query.page, 'page', DEFAULT_PAGE),
     limit: parsePositiveInteger(query.limit, 'limit', DEFAULT_LIMIT, MAX_LIMIT),
     search: parseOptionalText(query.search, 'search'),
@@ -70,6 +70,44 @@ function parseJobQuery(query = {}) {
     company: parseOptionalText(query.company, 'company'),
     location: parseOptionalText(query.location, 'location'),
   };
+
+  if (query.sort !== undefined) {
+    const sortVal = parseOptionalText(query.sort, 'sort');
+    if (sortVal !== undefined) {
+      const lower = sortVal.toLowerCase();
+      if (!['score', 'date', 'recent'].includes(lower)) {
+        throw new JobQueryValidationError('Query parameter "sort" must be either "score" or "date".');
+      }
+      normalized.sort = lower;
+    }
+  }
+
+  if (query.order !== undefined) {
+    const orderVal = parseOptionalText(query.order, 'order');
+    if (orderVal !== undefined) {
+      const lower = orderVal.toLowerCase();
+      if (!['asc', 'desc'].includes(lower)) {
+        throw new JobQueryValidationError('Query parameter "order" must be either "asc" or "desc".');
+      }
+      normalized.order = lower;
+    }
+  }
+
+  if (query.minScore !== undefined) {
+    normalized.minScore = parsePositiveInteger(query.minScore, 'minScore', 0, 100);
+  }
+
+  if (query.pjOnly !== undefined) {
+    const pjVal = queryValue(query.pjOnly, 'pjOnly');
+    normalized.pjOnly = pjVal === true || pjVal === 'true' || pjVal === 1 || pjVal === '1';
+  }
+
+  if (query.remoteOnly !== undefined) {
+    const remoteVal = queryValue(query.remoteOnly, 'remoteOnly');
+    normalized.remoteOnly = remoteVal === true || remoteVal === 'true' || remoteVal === 1 || remoteVal === '1';
+  }
+
+  return normalized;
 }
 
 function createJobQueryService(provider) {

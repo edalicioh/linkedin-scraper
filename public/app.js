@@ -6,11 +6,15 @@ let state = {
   page: 1,
   limit: 25,
   total: 0,
+  sort: 'score',
+  order: 'desc',
   filters: {
     search: '',
     location: '',
     company: '',
     type: '',
+    minScore: '',
+    pjRemoteOnly: false,
   },
   activeTaskId: null,
   pollTimer: null,
@@ -122,11 +126,18 @@ async function fetchJobs() {
   const params = new URLSearchParams();
   params.set('page', state.page);
   params.set('limit', state.limit);
+  if (state.sort) params.set('sort', state.sort);
+  if (state.order) params.set('order', state.order);
 
   if (state.filters.search) params.set('search', state.filters.search);
   if (state.filters.location) params.set('location', state.filters.location);
   if (state.filters.company) params.set('company', state.filters.company);
   if (state.filters.type) params.set('type', state.filters.type);
+  if (state.filters.minScore) params.set('minScore', state.filters.minScore);
+  if (state.filters.pjRemoteOnly) {
+    params.set('pjOnly', 'true');
+    params.set('remoteOnly', 'true');
+  }
 
   try {
     const url = `${apiBaseUrl}/api/jobs?${params.toString()}`;
@@ -194,6 +205,35 @@ function renderJobs(jobs) {
         ? escapeHtml(job.description)
         : 'Nenhuma descrição detalhada disponível.';
 
+      // Badges de IA e Score
+      let scoreBadge = '';
+      if (job.ai && job.ai.score !== null && job.ai.score !== undefined) {
+        const score = Number(job.ai.score);
+        let scoreClass = 'tag-score-mid';
+        if (score >= 80) scoreClass = 'tag-score-high';
+        else if (score < 50) scoreClass = 'tag-score-low';
+
+        scoreBadge = `<span class="tag tag-score ${scoreClass}">⭐ Score: ${score}/100</span>`;
+      }
+
+      let pjBadge = '';
+      let remoteBadge = '';
+      if (job.ai?.isPJ) pjBadge = '<span class="tag tag-pj">PJ</span>';
+      if (job.ai?.isRemote) remoteBadge = '<span class="tag tag-remote">Remoto</span>';
+      let eligibleBadge = '';
+      if (job.ai?.eligible) {
+        eligibleBadge = '<span class="tag tag-eligible">✨ PJ & Remoto</span>';
+      }
+
+      let aiSummaryBox = '';
+      if (job.ai?.summary) {
+        aiSummaryBox = `
+          <div class="ai-summary-box">
+            <strong>🤖 Análise da IA:</strong> ${escapeHtml(job.ai.summary)}
+          </div>
+        `;
+      }
+
       return `
       <article class="job-card" data-job-id="${escapeHtml(job.jobId)}">
         <header class="job-card-header">
@@ -207,12 +247,8 @@ function renderJobs(jobs) {
         </header>
 
         <div class="job-badges">
-          ${
-            job.ai
-              ? `<span class="tag tag-type">⭐ Nota IA: ${escapeHtml(String(job.ai.score))}</span>`
-              : ''
-          }
-          ${job.ai?.isPJ && job.ai?.isRemote ? '<span class="tag tag-app">PJ · Remoto</span>' : ''}
+          ${scoreBadge}
+          ${eligibleBadge || (pjBadge + remoteBadge)}
           ${job.type ? `<span class="tag tag-type">💼 ${escapeHtml(job.type)}</span>` : ''}
           ${
             job.applicationTypeRaw
@@ -223,7 +259,7 @@ function renderJobs(jobs) {
         </div>
 
         <div class="job-description-wrapper">
-          ${job.ai?.summary ? `<p class="text-muted">Triagem IA: ${escapeHtml(job.ai.summary)}</p>` : ''}
+          ${aiSummaryBox}
           <div class="job-description-content collapsed" id="desc-${escapeHtml(job.jobId)}">
             ${description}
           </div>
@@ -398,13 +434,27 @@ function initEventListeners() {
     state.filters.location = document.getElementById('filter-location').value.trim();
     state.filters.company = document.getElementById('filter-company').value.trim();
     state.filters.type = document.getElementById('filter-type').value.trim();
+
+    const minScoreInput = document.getElementById('filter-min-score');
+    state.filters.minScore = minScoreInput ? minScoreInput.value.trim() : '';
+
+    const pjRemoteCheck = document.getElementById('filter-pj-remote');
+    state.filters.pjRemoteOnly = pjRemoteCheck ? pjRemoteCheck.checked : false;
+
     state.page = 1;
     fetchJobs();
   });
 
   document.getElementById('clear-filters-btn').addEventListener('click', () => {
     document.getElementById('filters-form').reset();
-    state.filters = { search: '', location: '', company: '', type: '' };
+    state.filters = {
+      search: '',
+      location: '',
+      company: '',
+      type: '',
+      minScore: '',
+      pjRemoteOnly: false,
+    };
     state.page = 1;
     fetchJobs();
   });
@@ -413,6 +463,26 @@ function initEventListeners() {
     fetchJobs();
     checkApiHealth();
   });
+
+  // Ordenação
+  const sortSelect = document.getElementById('select-sort');
+  if (sortSelect) {
+    sortSelect.addEventListener('change', (e) => {
+      const val = e.target.value;
+      if (val === 'date') {
+        state.sort = 'date';
+        state.order = 'desc';
+      } else if (val === 'score-asc') {
+        state.sort = 'score';
+        state.order = 'asc';
+      } else {
+        state.sort = 'score';
+        state.order = 'desc';
+      }
+      state.page = 1;
+      fetchJobs();
+    });
+  }
 
   // Limite por página
   document.getElementById('select-limit').addEventListener('change', (e) => {

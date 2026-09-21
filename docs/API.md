@@ -164,14 +164,19 @@ Retorna as vagas salvas no SQLite com paginacao e filtros opcionais.
 
 Parametros:
 
-| Parametro  | Tipo                   | Padrao | Regras                    |
-| ---------- | ---------------------- | ------ | ------------------------- |
-| `page`     | inteiro positivo       | `1`    | Numero da pagina.         |
-| `limit`    | inteiro de `1` a `100` | `25`   | Itens por pagina.         |
-| `search`   | string                 | nenhum | Busca textual.            |
-| `type`     | string                 | nenhum | Filtra pelo tipo da vaga. |
-| `company`  | string                 | nenhum | Filtra pela empresa.      |
-| `location` | string                 | nenhum | Filtra pela localizacao.  |
+| Parametro    | Tipo                   | Padrao  | Regras                                                |
+| ------------ | ---------------------- | ------- | ----------------------------------------------------- |
+| `page`       | inteiro positivo       | `1`     | Numero da pagina.                                     |
+| `limit`      | inteiro de `1` a `100` | `25`    | Itens por pagina.                                     |
+| `search`     | string                 | nenhum  | Busca textual.                                        |
+| `type`       | string                 | nenhum  | Filtra pelo tipo da vaga.                             |
+| `company`    | string                 | nenhum  | Filtra pela empresa.                                  |
+| `location`   | string                 | nenhum  | Filtra pela localizacao.                              |
+| `sort`       | string                 | `score` | Ordena por `score` (padrao) ou `date` (data extracao). |
+| `order`      | string                 | `desc`  | Direcao `desc` ou `asc`.                              |
+| `minScore`   | inteiro de `0` a `100` | nenhum  | Filtra vagas com score maior ou igual ao informado.   |
+| `pjOnly`     | booleano               | `false` | Filtra vagas identificadas como PJ.                   |
+| `remoteOnly` | booleano               | `false` | Filtra vagas identificadas como Remoto.               |
 
 Os filtros podem ser combinados.
 
