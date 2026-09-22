@@ -20,7 +20,7 @@ test('creates the schema and SQLite settings in an empty database', (t) => {
   t.after(() => db.close());
   t.after(() => fs.rmSync(temporary.directory, { recursive: true, force: true }));
 
-  assert.equal(db.pragma('user_version', { simple: true }), 2);
+  assert.equal(db.pragma('user_version', { simple: true }), 3);
   assert.equal(db.pragma('journal_mode', { simple: true }), 'wal');
   assert.equal(db.pragma('foreign_keys', { simple: true }), 1);
   assert.equal(db.pragma('busy_timeout', { simple: true }), 5000);
@@ -51,6 +51,7 @@ test('creates the schema and SQLite settings in an empty database', (t) => {
       'ai_model',
       'ai_profile_version',
       'ai_scored_at',
+      'review_status',
     ]
   );
 });
@@ -61,12 +62,12 @@ test('migration re-execution is idempotent', (t) => {
   t.after(() => db.close());
   t.after(() => fs.rmSync(temporary.directory, { recursive: true, force: true }));
 
-  assert.equal(applyMigrations(db), 2);
+  assert.equal(applyMigrations(db), 3);
   assert.equal(
     db
       .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'jobs'")
       .get().count,
     1
   );
-  assert.equal(db.pragma('user_version', { simple: true }), 2);
+  assert.equal(db.pragma('user_version', { simple: true }), 3);
 });

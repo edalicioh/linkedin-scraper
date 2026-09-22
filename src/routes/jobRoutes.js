@@ -12,6 +12,9 @@ function createJobRouter(dependencies) {
     router.get('/scrape/:taskId', controller.getScrapeStatus);
   }
   router.get('/jobs', controller.getJobs);
+  if (controller.updateJobStatus) {
+    router.patch('/jobs/:jobId/status', controller.updateJobStatus);
+  }
   return router;
 }
 

@@ -555,6 +555,35 @@ select:focus {
   gap: 4px;
 }
 
+.review-status {
+  display: inline-flex;
+  margin-top: 8px;
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.review-status-new {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.review-status-seen {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.review-status-applied {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.review-status-not_for_me {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 .job-badges {
   display: flex;
   flex-wrap: wrap;
@@ -701,6 +730,19 @@ select:focus {
   margin-top: 6px;
   padding-top: 12px;
   border-top: 1px solid #f1f5f9;
+}
+
+.review-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.review-status-btn.active {
+  border-color: var(--primary-color);
+  background-color: var(--primary-light);
+  color: var(--primary-hover);
 }
 
 /* Pagination */

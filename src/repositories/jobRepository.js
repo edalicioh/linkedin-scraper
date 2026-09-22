@@ -37,6 +37,12 @@ function parseJson(value) {
   }
 }
 
+const REVIEW_STATUSES = Object.freeze(['new', 'seen', 'applied', 'not_for_me']);
+
+function isReviewStatus(value) {
+  return REVIEW_STATUSES.includes(value);
+}
+
 function normalizeJob(job) {
   const jobId = nullIfMissing(job.jobId ?? job.job_id);
   const url = nullIfMissing(job.url);
@@ -115,6 +121,7 @@ function toPublicJob(row) {
     extractionDate: row.extracted_at,
     firstSeenAt: row.first_seen_at,
     lastSeenAt: row.last_seen_at,
+    reviewStatus: row.review_status || 'new',
   };
 }
 
@@ -166,6 +173,9 @@ class JobRepository {
     `);
     this.getByIdStatement = db.prepare('SELECT * FROM jobs WHERE job_id = ?');
     this.listAllStatement = db.prepare('SELECT * FROM jobs ORDER BY first_seen_at ASC, job_id ASC');
+    this.updateReviewStatusStatement = db.prepare(
+      'UPDATE jobs SET review_status = ? WHERE job_id = ?'
+    );
   }
 
   findExistingIds(jobIds) {
@@ -216,6 +226,15 @@ class JobRepository {
     return toPublicJob(this.getByIdStatement.get(String(jobId)));
   }
 
+  updateReviewStatus(jobId, reviewStatus) {
+    if (!isReviewStatus(reviewStatus)) {
+      throw new Error(`Invalid review status: ${reviewStatus}`);
+    }
+
+    const result = this.updateReviewStatusStatement.run(reviewStatus, String(jobId));
+    return result.changes > 0 ? this.getById(jobId) : null;
+  }
+
   listAll() {
     return this.listAllStatement.all().map(toPublicJob);
   }
@@ -232,6 +251,7 @@ class JobRepository {
     minScore,
     pjOnly,
     remoteOnly,
+    reviewStatus,
   } = {}) {
     const conditions = [];
     const params = {};
@@ -265,6 +285,10 @@ class JobRepository {
     }
     if (remoteOnly === true || remoteOnly === 'true' || remoteOnly === 1 || remoteOnly === '1') {
       conditions.push("ai_is_remote = 1");
+    }
+    if (reviewStatus) {
+      conditions.push('review_status = @reviewStatus');
+      params.reviewStatus = reviewStatus;
     }
 
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -304,4 +328,6 @@ module.exports = {
   createJobRepository,
   normalizeJob,
   toPublicJob,
+  REVIEW_STATUSES,
+  isReviewStatus,
 };

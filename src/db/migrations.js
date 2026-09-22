@@ -33,6 +33,12 @@ const MIGRATIONS = [
       ALTER TABLE jobs ADD COLUMN ai_scored_at TEXT;
     `,
   },
+  {
+    version: 3,
+    sql: `
+      ALTER TABLE jobs ADD COLUMN review_status TEXT NOT NULL DEFAULT 'new';
+    `,
+  },
 ];
 
 function applyMigrations(db) {

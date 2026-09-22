@@ -177,6 +177,7 @@ Parametros:
 | `minScore`   | inteiro de `0` a `100` | nenhum  | Filtra vagas com score maior ou igual ao informado.   |
 | `pjOnly`     | booleano               | `false` | Filtra vagas identificadas como PJ.                   |
 | `remoteOnly` | booleano               | `false` | Filtra vagas identificadas como Remoto.               |
+| `reviewStatus` | string              | nenhum  | Filtra por `new`, `seen`, `applied` ou `not_for_me`.   |
 
 Os filtros podem ser combinados.
 
@@ -216,7 +217,8 @@ Resposta `200 OK`:
       },
       "extractionDate": "2026-09-18T14:03:10.000Z",
       "firstSeenAt": "2026-09-18T14:03:10.000Z",
-      "lastSeenAt": "2026-09-18T14:03:10.000Z"
+      "lastSeenAt": "2026-09-18T14:03:10.000Z",
+      "reviewStatus": "new"
     }
   ],
   "page": 1,
@@ -242,6 +244,23 @@ Erro de validacao `400`:
   }
 }
 ```
+
+### Atualizar status de triagem
+
+#### `PATCH /api/jobs/:jobId/status`
+
+Atualiza o status manual da vaga. Os valores aceitos são `new` (nova), `seen`
+(já vi), `applied` (currículo enviado) e `not_for_me` (não é para mim).
+
+Exemplo:
+
+```bash
+curl -X PATCH http://localhost:3000/api/jobs/4456258553/status \
+  -H "Content-Type: application/json" \
+  -d '{"reviewStatus":"applied"}'
+```
+
+O status é preservado quando a mesma vaga for encontrada novamente pelo scraper.
 
 ## Scheduler Docker
 

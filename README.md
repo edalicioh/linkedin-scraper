@@ -48,7 +48,7 @@ A execucao direta usa `php` e `Brasil` como valores padrao. A API escuta em
 
 Com a API em execucao, a interface web simples fica disponivel em:
 `http://localhost:3000/app` (ou `http://localhost:3000/index.html`).
-Ela permite visualizar vagas com busca/filtros, paginacao e enfileirar novas coletas.
+Ela permite visualizar vagas com busca/filtros, paginacao, triagem por status e enfileirar novas coletas.
 
 ## Docker
 

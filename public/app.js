@@ -13,6 +13,7 @@ let state = {
     location: '',
     company: '',
     type: '',
+    reviewStatus: '',
     minScore: '',
     pjRemoteOnly: false,
   },
@@ -132,7 +133,8 @@ async function fetchJobs() {
   if (state.filters.search) params.set('search', state.filters.search);
   if (state.filters.location) params.set('location', state.filters.location);
   if (state.filters.company) params.set('company', state.filters.company);
-  if (state.filters.type) params.set('type', state.filters.type);
+    if (state.filters.type) params.set('type', state.filters.type);
+    if (state.filters.reviewStatus) params.set('reviewStatus', state.filters.reviewStatus);
   if (state.filters.minScore) params.set('minScore', state.filters.minScore);
   if (state.filters.pjRemoteOnly) {
     params.set('pjOnly', 'true');
@@ -201,6 +203,15 @@ function renderJobs(jobs) {
       const location = job.jobLocation || job.queryLocation || 'Localização não informada';
       const dateFormatted = formatDate(job.extractionDate || job.firstSeenAt);
       const hasExternalUrl = Boolean(job.externalUrl);
+      const reviewStatus = ['new', 'seen', 'applied', 'not_for_me'].includes(job.reviewStatus)
+        ? job.reviewStatus
+        : 'new';
+      const reviewStatusLabels = {
+        new: 'Nova',
+        seen: 'Já vi',
+        applied: 'Currículo enviado',
+        not_for_me: 'Não é para mim',
+      };
       const description = job.description
         ? escapeHtml(job.description)
         : 'Nenhuma descrição detalhada disponível.';
@@ -243,6 +254,7 @@ function renderJobs(jobs) {
               <span class="job-meta-item">🏢 <strong>${escapeHtml(company)}</strong></span>
               <span class="job-meta-item">📍 ${escapeHtml(location)}</span>
             </div>
+            <span class="review-status review-status-${reviewStatus}">${reviewStatusLabels[reviewStatus]}</span>
           </div>
         </header>
 
@@ -285,6 +297,16 @@ function renderJobs(jobs) {
                 </a>`
               : ''
           }
+          <div class="review-actions" aria-label="Status da vaga">
+            ${Object.entries(reviewStatusLabels)
+              .map(
+                ([status, label]) =>
+                  `<button type="button" class="btn btn-secondary btn-sm review-status-btn${
+                    status === reviewStatus ? ' active' : ''
+                  }" data-job-id="${escapeHtml(job.jobId)}" data-review-status="${status}">${label}</button>`
+              )
+              .join('')}
+          </div>
         </footer>
       </article>
     `;
@@ -304,6 +326,40 @@ function renderJobs(jobs) {
       }
     });
   });
+
+  container.querySelectorAll('.review-status-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      updateJobStatus(btn.dataset.jobId, btn.dataset.reviewStatus, btn.closest('.job-card'));
+    });
+  });
+}
+
+async function updateJobStatus(jobId, reviewStatus, card) {
+  const buttons = card ? card.querySelectorAll('.review-status-btn') : [];
+  buttons.forEach((button) => {
+    button.disabled = true;
+  });
+
+  try {
+    const response = await fetch(`${apiBaseUrl}/api/jobs/${encodeURIComponent(jobId)}/status`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reviewStatus }),
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+      throw new Error(data.error?.message || 'Falha ao atualizar o status da vaga.');
+    }
+
+    showAlert('Status da vaga atualizado.', 'success', 2500);
+    await fetchJobs();
+  } catch (error) {
+    buttons.forEach((button) => {
+      button.disabled = false;
+    });
+    showAlert(error.message, 'error');
+  }
 }
 
 // Atualização da Paginação
@@ -434,6 +490,7 @@ function initEventListeners() {
     state.filters.location = document.getElementById('filter-location').value.trim();
     state.filters.company = document.getElementById('filter-company').value.trim();
     state.filters.type = document.getElementById('filter-type').value.trim();
+    state.filters.reviewStatus = document.getElementById('filter-review-status').value;
 
     const minScoreInput = document.getElementById('filter-min-score');
     state.filters.minScore = minScoreInput ? minScoreInput.value.trim() : '';
@@ -452,6 +509,7 @@ function initEventListeners() {
       location: '',
       company: '',
       type: '',
+      reviewStatus: '',
       minScore: '',
       pjRemoteOnly: false,
     };

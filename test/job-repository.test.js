@@ -120,6 +120,29 @@ test('persiste a classificação e a pontuação da IA', (t) => {
   assert.deepEqual(saved.ai.evidence, { pj: 'PJ', remote: 'Remoto' });
 });
 
+test('persiste o status de triagem e o preserva durante novas coletas', (t) => {
+  const repository = repositoryFixture(t);
+
+  repository.upsert(job());
+  assert.equal(repository.getById('100').reviewStatus, 'new');
+  assert.equal(repository.updateReviewStatus('100', 'seen').reviewStatus, 'seen');
+
+  const updated = repository.upsert(job({ title: 'Updated title' }));
+  assert.equal(updated.title, 'Updated title');
+  assert.equal(updated.reviewStatus, 'seen');
+});
+
+test('queryJobs filtra por status de triagem', (t) => {
+  const repository = repositoryFixture(t);
+  repository.upsert(job({ jobId: 'new-job' }));
+  repository.upsert(job({ jobId: 'applied-job', url: 'https://job/applied' }));
+  repository.updateReviewStatus('applied-job', 'applied');
+
+  const result = repository.queryJobs({ reviewStatus: 'applied' });
+  assert.deepEqual(result.items.map((item) => item.jobId), ['applied-job']);
+  assert.equal(result.total, 1);
+});
+
 test('queryJobs ordena por ai_score decrescente por padrão e coloca vagas sem score por último', (t) => {
   const repository = repositoryFixture(t);
   repository.upsert(job({ jobId: 'j1', aiScore: 50, extractionDate: '2026-01-01T00:00:00.000Z' }));

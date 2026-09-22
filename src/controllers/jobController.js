@@ -1,5 +1,6 @@
 const { createDatabase } = require('../db/database');
 const { createJobRepository } = require('../repositories/jobRepository');
+const { isReviewStatus } = require('../repositories/jobRepository');
 const { ScrapeQueue, QueueFullError } = require('../services/scrapeQueue');
 const { MemoryTaskStore, normalizeInput } = require('../services/memoryTaskStore');
 const { createJobQueryService, JobQueryValidationError } = require('../services/jobQueryService');
@@ -22,6 +23,19 @@ function createSqliteJobQueryProvider(dbPath) {
   };
 }
 
+function createSqliteJobMutationProvider(dbPath) {
+  return {
+    updateReviewStatus(jobId, reviewStatus) {
+      const db = createDatabase(dbPath);
+      try {
+        return createJobRepository(db).updateReviewStatus(jobId, reviewStatus);
+      } finally {
+        db.close();
+      }
+    },
+  };
+}
+
 function createJobController({
   queue,
   store,
@@ -29,6 +43,7 @@ function createJobController({
   maxBacklog,
   provider,
   jobQueryProvider,
+  jobMutationProvider,
 } = {}) {
   const taskStore = store || (queue && queue.store) || new MemoryTaskStore();
   const scrapeQueue =
@@ -41,6 +56,15 @@ function createJobController({
   const queryJobs = createJobQueryService(
     jobQueryProvider || provider || createSqliteJobQueryProvider()
   );
+  const mutationProvider = jobMutationProvider || createSqliteJobMutationProvider();
+  const updateReviewStatus =
+    typeof mutationProvider === 'function'
+      ? mutationProvider
+      : mutationProvider.updateReviewStatus;
+
+  if (typeof updateReviewStatus !== 'function') {
+    throw new TypeError('A job mutation provider is required.');
+  }
 
   async function startScraping(req, res) {
     let input;
@@ -98,7 +122,44 @@ function createJobController({
     }
   }
 
-  return { startScraping, getScrapeStatus, getJobs, queue: scrapeQueue, store: taskStore };
+  async function updateJobStatus(req, res) {
+    const reviewStatus = req.body && req.body.reviewStatus;
+    if (typeof reviewStatus !== 'string' || !isReviewStatus(reviewStatus)) {
+      return res.status(400).json({
+        error: {
+          code: 'INVALID_REVIEW_STATUS',
+          message: 'O campo "reviewStatus" deve ser new, seen, applied ou not_for_me.',
+        },
+      });
+    }
+
+    try {
+      const job = await updateReviewStatus(req.params.jobId, reviewStatus);
+      if (!job) {
+        return res.status(404).json({
+          error: { code: 'JOB_NOT_FOUND', message: 'Vaga não encontrada.' },
+        });
+      }
+      return res.json(job);
+    } catch (error) {
+      console.error('Erro ao atualizar o status do job:', error);
+      return res.status(500).json({
+        error: {
+          code: 'JOB_STATUS_UPDATE_FAILED',
+          message: 'Falha ao atualizar o status da vaga.',
+        },
+      });
+    }
+  }
+
+  return {
+    startScraping,
+    getScrapeStatus,
+    getJobs,
+    updateJobStatus,
+    queue: scrapeQueue,
+    store: taskStore,
+  };
 }
 
 const defaultController = createJobController();

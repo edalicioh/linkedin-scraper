@@ -1,6 +1,7 @@
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 25;
 const MAX_LIMIT = 100;
+const { isReviewStatus } = require('../repositories/jobRepository');
 
 class JobQueryValidationError extends Error {
   constructor(message) {
@@ -105,6 +106,16 @@ function parseJobQuery(query = {}) {
   if (query.remoteOnly !== undefined) {
     const remoteVal = queryValue(query.remoteOnly, 'remoteOnly');
     normalized.remoteOnly = remoteVal === true || remoteVal === 'true' || remoteVal === 1 || remoteVal === '1';
+  }
+
+  if (query.reviewStatus !== undefined) {
+    const status = parseOptionalText(query.reviewStatus, 'reviewStatus');
+    if (status !== undefined && !isReviewStatus(status)) {
+      throw new JobQueryValidationError(
+        'Query parameter "reviewStatus" must be new, seen, applied or not_for_me.'
+      );
+    }
+    normalized.reviewStatus = status;
   }
 
   return normalized;
